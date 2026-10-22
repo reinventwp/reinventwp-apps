@@ -1,13 +1,14 @@
 import { ThemeProvider } from "@mui/material/styles";
-import { useState } from "react";
 import strings, { ASK_TYPING } from "../strings";
 import theme from "../theme";
 import AskBar from "./AskBar";
+import ChatLauncher from "./ChatLauncher";
 import AssistantPanel, { PANEL_WIDTH } from "./AssistantPanel";
 import type { BotConfig } from "./types";
 import useApps from "./useApps";
 import useAssistant from "./useAssistant";
 import useAvailability from "./useAvailability";
+import useStoredFlag, { MINIMIZED_KEY, OPEN_KEY } from "./storedFlag";
 import usePageAllows from "./usePageAllows";
 import { useAnchor, useShift } from "./useShift";
 
@@ -20,7 +21,9 @@ export default function Bot({ config }: { config: BotConfig }) {
   const serviceOn = useAvailability(`${config.url}/status`);
   const pageAllows = usePageAllows();
   const available = serviceOn && pageAllows;
-  const [asking, setAsking] = useState(false);
+  // Both remembered across reloads and pages: whether the panel is open, and the field minimized.
+  const [asking, setAsking] = useStoredFlag(OPEN_KEY);
+  const [minimized, setMinimized] = useStoredFlag(MINIMIZED_KEY);
   const open = available && asking;
   const assistant = useAssistant(config, strings.ask_error, apps);
   const anchor = useAnchor(config.shift);
@@ -28,7 +31,24 @@ export default function Bot({ config }: { config: BotConfig }) {
 
   return (
     <ThemeProvider theme={theme}>
-      {available && !asking && <AskBar placeholder={strings.ask} phrases={ASK_TYPING} anchor={anchor} onOpen={() => setAsking(true)} />}
+      {available && !asking && !minimized && (
+        <AskBar
+          placeholder={strings.ask}
+          phrases={ASK_TYPING}
+          anchor={anchor}
+          onOpen={() => setAsking(true)}
+          onMinimize={() => setMinimized(true)}
+          minimizeLabel={strings.ask_minimize}
+        />
+      )}
+      {available && !asking && minimized && (
+        <ChatLauncher
+          label={strings.ask_launcher}
+          restoreLabel={strings.ask_restore}
+          onOpen={() => setAsking(true)}
+          onRestore={() => setMinimized(false)}
+        />
+      )}
       {open && (
         <AssistantPanel
           apps={apps}
