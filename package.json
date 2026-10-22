@@ -1,6 +1,6 @@
 {
   "name": "reinventwp-apps-dashboard",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "The shared \"Reinvent WP Apps\" admin page, copied into each WordPress.org-approved Reinvent WP plugin.",
   "private": true,
   "scripts": {

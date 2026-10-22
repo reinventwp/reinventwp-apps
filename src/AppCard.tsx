@@ -1,6 +1,5 @@
-import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
-import { Box, Button, Chip, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, Link, Stack, Typography } from "@mui/material";
 import hubApps from "./apps";
 import appStories from "./story";
 import { NEUTRAL_BORDER } from "./theme";
@@ -41,7 +40,13 @@ export default function AppCard({ app }: AppCardProps) {
 
       <Box>
         <Typography variant="h6" component="h3" sx={{ lineHeight: 1.3 }}>
-          {app.name}
+          {app.learn_url ? (
+            <Link href={app.learn_url} target="_blank" rel="noopener noreferrer" color="inherit" underline="hover">
+              {app.name}
+            </Link>
+          ) : (
+            app.name
+          )}
         </Typography>
         {app.category && <Chip label={app.category} size="small" variant="outlined" sx={{ mt: 0.75 }} />}
       </Box>
@@ -50,7 +55,7 @@ export default function AppCard({ app }: AppCardProps) {
         {app.description}
       </Typography>
 
-      {(action || app.coming_soon || app.learn_url) && (
+      {(action || app.coming_soon) && (
         <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
           {app.coming_soon && (
             <Button variant="outlined" disabled>
@@ -65,18 +70,6 @@ export default function AppCard({ app }: AppCardProps) {
               startIcon={action.install ? <DownloadRoundedIcon /> : undefined}
             >
               {action.label}
-            </Button>
-          )}
-          {app.learn_url && (
-            <Button
-              variant="outlined"
-              href={app.learn_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              endIcon={<ArrowForwardRoundedIcon />}
-              aria-label={`${strings.learn_more}: ${app.name}`}
-            >
-              {strings.learn_more}
             </Button>
           )}
         </Stack>

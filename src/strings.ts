@@ -7,7 +7,6 @@ const strings = {
   open: "Open",
   activate: "Activate",
   install: "Install",
-  learn_more: "Learn more",
   refresh_hint: "Get the latest list of apps now",
   catalog_hint: "See every Reinvent WP plugin on reinventwp.com",
   coming_soon: "Coming soon",
