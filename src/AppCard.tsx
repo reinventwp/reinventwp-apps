@@ -41,7 +41,14 @@ export default function AppCard({ app }: AppCardProps) {
       <Box>
         <Typography variant="h6" component="h3" sx={{ lineHeight: 1.3 }}>
           {app.learn_url ? (
-            <Link href={app.learn_url} target="_blank" rel="noopener noreferrer" color="inherit" underline="always">
+            <Link
+              href={app.learn_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              color="inherit"
+              underline="always"
+              sx={{ textUnderlineOffset: "0.18em", textDecorationThickness: "1px" }}
+            >
               {app.name}
             </Link>
           ) : (
