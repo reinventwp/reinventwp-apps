@@ -160,12 +160,12 @@ class {{CLASS}} {
 		};
 		return array(
 			$app( 'natural-text-to-speech', 'Text to Speech', __( 'Read posts aloud with natural voices and highlight words as they are spoken.', '{{TEXT_DOMAIN}}' ), __( 'Content', '{{TEXT_DOMAIN}}' ), 'admin.php?page=natuteto-settings', true, self::SITE_URL . '/text-to-speech' ),
-			$app( 'reinvent-media-cleanup', 'Media Cleanup', __( 'Find unused images and files and remove them safely, with a safety net.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpmc-media-cleanup', true ),
-			$app( 'reinvent-retina-images', 'Retina Images', __( 'Sharp retina images, fix blurry or missing image sizes and free up space.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprt-thumbnails' ),
-			$app( 'reinvent-rename-replace-media', 'Rename & Replace Media', __( 'Give images SEO-friendly names and swap files without breaking links, with undo.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprm-rename' ),
-			$app( 'reinvent-database-cleaner', 'Database Cleaner', __( 'Clean up and speed up your database, see which plugin left what behind, and undo anything.', '{{TEXT_DOMAIN}}' ), __( 'Performance', '{{TEXT_DOMAIN}}' ), 'tools.php?page=rwpdc-cleaner' ),
-			$app( 'reinvent-lightbox', 'Lightbox', __( 'Open images and galleries in a fast lightbox with photo details, slideshow, zoom and shareable links.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'admin.php?page=rwplb-settings' ),
-			$app( 'reinvent-watermark', 'Watermark', __( 'Add a text or logo watermark to your images on upload or in bulk, and remove it any time.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpwm-watermark' ),
+			$app( 'reinvent-media-cleanup', 'Media Cleanup', __( 'Find unused images and files and remove them safely, with a safety net.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpmc-media-cleanup', true, self::SITE_URL . '/media-cleanup' ),
+			$app( 'reinvent-retina-images', 'Retina Images', __( 'Sharp retina images, fix blurry or missing image sizes and free up space.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprt-thumbnails', false, self::SITE_URL . '/retina-images' ),
+			$app( 'reinvent-rename-replace-media', 'Rename & Replace Media', __( 'Give images SEO-friendly names and swap files without breaking links, with undo.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprm-rename', false, self::SITE_URL . '/rename-replace-media' ),
+			$app( 'reinvent-database-cleaner', 'Database Cleaner', __( 'Clean up and speed up your database, see which plugin left what behind, and undo anything.', '{{TEXT_DOMAIN}}' ), __( 'Performance', '{{TEXT_DOMAIN}}' ), 'tools.php?page=rwpdc-cleaner', false, self::SITE_URL . '/database-cleaner' ),
+			$app( 'reinvent-lightbox', 'Lightbox', __( 'Open images and galleries in a fast lightbox with photo details, slideshow, zoom and shareable links.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'admin.php?page=rwplb-settings', false, self::SITE_URL . '/lightbox' ),
+			$app( 'reinvent-watermark', 'Watermark', __( 'Add a text or logo watermark to your images on upload or in bulk, and remove it any time.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpwm-watermark', false, self::SITE_URL . '/watermark' ),
 		);
 	}
 
