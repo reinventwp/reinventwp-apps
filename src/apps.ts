@@ -31,7 +31,7 @@ function summary(template: string, apps: HubApp[]): string {
 function action(app: HubApp): AppAction | null {
   if (app.state === "active" && app.open_url) return { href: app.open_url, label: strings.open, variant: "contained", install: false };
   if (app.state === "inactive" && app.activate_url) return { href: app.activate_url, label: strings.activate, variant: "outlined", install: false };
-  if (app.state === "missing" && app.install_url) return { href: app.install_url, label: strings.install, variant: "outlined", install: true };
+  if (app.state === "missing" && app.install_url && !app.coming_soon) return { href: app.install_url, label: strings.install, variant: "outlined", install: true };
   return null;
 }
 

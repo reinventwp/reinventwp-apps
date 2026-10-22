@@ -11,6 +11,7 @@ const app = (slug: string, state: HubApp["state"]): HubApp => ({
   version: "",
   open_url: "",
   activate_url: "",
+  coming_soon: false,
   install_url: "",
   learn_url: "",
 });
@@ -35,6 +36,10 @@ describe("hubApps.action", () => {
     expect(hubApps.action({ ...app("a", "active"), open_url: "/open" })).toMatchObject({ label: "Open", variant: "contained" });
     expect(hubApps.action({ ...app("b", "inactive"), activate_url: "/act" })).toMatchObject({ label: "Activate", variant: "outlined", install: false });
     expect(hubApps.action({ ...app("c", "missing"), install_url: "/inst" })).toMatchObject({ label: "Install", variant: "outlined", install: true });
+  });
+
+  it("never offers Install for an app that isn't on WordPress.org yet", () => {
+    expect(hubApps.action({ ...app("e", "missing"), coming_soon: true, install_url: "/inst" })).toBeNull();
   });
 
   it("offers nothing when there is no link, like an active app without settings", () => {

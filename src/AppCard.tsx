@@ -50,8 +50,13 @@ export default function AppCard({ app }: AppCardProps) {
         {app.description}
       </Typography>
 
-      {(action || app.learn_url) && (
+      {(action || app.coming_soon || app.learn_url) && (
         <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+          {app.coming_soon && (
+            <Button variant="outlined" disabled>
+              {strings.coming_soon}
+            </Button>
+          )}
           {action && (
             <Button
               variant={action.variant}

@@ -17,6 +17,7 @@ describe("bot apps on the website", () => {
         version: "",
         open_url: "",
         activate_url: "",
+        coming_soon: false,
         install_url: "https://wordpress.org/plugins/natural-text-to-speech/",
         learn_url: "/text-to-speech",
       },

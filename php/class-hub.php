@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.0.0';
+	const HUB_VERSION = '2.1.0';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -124,7 +124,8 @@ class {{CLASS}} {
 	/**
 	 * Every Reinvent WP app: the list from Reinvent WP Services when it could be read,
 	 * otherwise the built-in one. Apps with 'released' => false only get a card on
-	 * sites where they're already installed.
+	 * sites where they're already installed, or a "Coming soon" card when the catalog
+	 * says so.
 	 *
 	 * @return array
 	 */
@@ -152,6 +153,7 @@ class {{CLASS}} {
 				'slug'        => $slug,
 				'page'        => $page,
 				'released'    => $released,
+				'coming_soon' => ! $released,
 				'category'    => $category,
 				'href'        => $href,
 			);
@@ -275,6 +277,7 @@ class {{CLASS}} {
 				'slug'        => $slug,
 				'page'        => $page,
 				'released'    => isset( $item['released'] ) && true === $item['released'],
+				'coming_soon' => 'coming-soon' === $status,
 				'category'    => isset( $item['category'] ) ? sanitize_text_field( (string) $item['category'] ) : '',
 				'href'        => self::product_url( isset( $item['href'] ) ? (string) $item['href'] : '' ),
 			);
@@ -331,7 +334,9 @@ class {{CLASS}} {
 		$cards        = array();
 		foreach ( self::catalog() as $app ) {
 			$is_installed = isset( $installed[ $app['file'] ] );
-			if ( empty( $app['released'] ) && ! $is_installed ) {
+			// Not on WordPress.org yet: only a "Coming soon" card, or nothing.
+			$coming_soon = empty( $app['released'] ) && ! $is_installed;
+			if ( $coming_soon && empty( $app['coming_soon'] ) ) {
 				continue;
 			}
 			$is_active = $is_installed && is_plugin_active( $app['file'] );
@@ -344,7 +349,8 @@ class {{CLASS}} {
 				'version'      => $is_installed ? (string) $installed[ $app['file'] ]['Version'] : '',
 				'open_url'     => $is_active && ! empty( $app['page'] ) ? admin_url( $app['page'] ) : '',
 				'activate_url' => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['file'] ) : '',
-				'install_url'  => ! $is_installed && $can_install ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
+				'coming_soon'  => $coming_soon,
+				'install_url'  => ! $is_installed && $can_install && ! $coming_soon ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
 				'learn_url'    => isset( $app['href'] ) ? (string) $app['href'] : '',
 			);
 		}

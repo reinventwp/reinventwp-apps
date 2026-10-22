@@ -30,6 +30,7 @@ function fromCatalog(plugins: CatalogPlugin[]): HubApp[] {
       version: "",
       open_url: "",
       activate_url: "",
+      coming_soon: false,
       install_url: `${WORDPRESS_ORG}/${plugin.slug}/`,
       learn_url: plugin.href ?? "",
     }));

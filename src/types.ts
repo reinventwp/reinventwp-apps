@@ -14,6 +14,8 @@ export interface HubApp {
   open_url: string;
   /** Activation link for an installed app, when the user may activate plugins. */
   activate_url: string;
+  /** Not on WordPress.org yet: the card says "Coming soon" instead of Install. */
+  coming_soon: boolean;
   /** WordPress.org install screen, when the user may install plugins. */
   install_url: string;
   /** Product page on reinventwp.com. */
