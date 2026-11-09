@@ -17,7 +17,7 @@ const pointer: Variants = {
   p2: { opacity: 1, x: 0, y: 0, transition: { duration: 0.7, ease: EASE } },
 };
 
-/** Gallery Custom Links: each gallery image gets its own link, and a click opens that page. */
+/** Image Links: each gallery image gets its own link, and a click opens that page. */
 function GalleryScene() {
   const mode = useMode();
   return (

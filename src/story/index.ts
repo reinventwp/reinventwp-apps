@@ -15,7 +15,7 @@ const appStories: Record<string, ComponentType> = {
   "ai-agent": AiAgentStory,
   "natural-text-to-speech": TextToSpeechStory,
   "reinvent-database-cleaner": DatabaseCleanerStory,
-  "reinvent-gallery-custom-links": GalleryLinksStory,
+  "reinvent-image-links": GalleryLinksStory,
   "reinvent-lightbox": LightboxStory,
   "reinvent-media-cleanup": MediaCleanupStory,
   "reinvent-rename-replace-media": RenameReplaceStory,
