@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 import AiAgentStory from "./scenes/AiAgent";
+import AltTextStory from "./scenes/AltText";
+import AutoFeaturedImageStory from "./scenes/AutoFeaturedImage";
 import DatabaseCleanerStory from "./scenes/DatabaseCleaner";
 import GalleryLinksStory from "./scenes/GalleryLinks";
 import LightboxStory from "./scenes/Lightbox";
@@ -14,6 +16,8 @@ import WatermarkStory from "./scenes/Watermark";
 const appStories: Record<string, ComponentType> = {
   "ai-agent": AiAgentStory,
   "natural-text-to-speech": TextToSpeechStory,
+  "reinvent-alt-text": AltTextStory,
+  "reinvent-auto-featured-image": AutoFeaturedImageStory,
   "reinvent-database-cleaner": DatabaseCleanerStory,
   "reinvent-image-links": GalleryLinksStory,
   "reinvent-lightbox": LightboxStory,

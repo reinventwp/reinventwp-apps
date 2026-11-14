@@ -42,7 +42,7 @@ export default function AppCard({ app }: AppCardProps) {
         <Typography variant="h6" component="h3" sx={{ lineHeight: 1.3 }}>
           {app.learn_url ? (
             <Link
-              href={app.learn_url}
+              href={hubApps.siteLink(app.learn_url, "apps_hub", app.slug)}
               target="_blank"
               rel="noopener noreferrer"
               color="inherit"

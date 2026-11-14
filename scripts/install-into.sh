@@ -5,7 +5,7 @@
 #   ./scripts/install-into.sh <plugin dir> <hub php path> <class> <text domain> <package>
 #   ./scripts/install-into.sh ../reinvent-media-cleanup/plugin includes/class-rwpmc-hub.php Rwpmc_Hub reinvent-media-cleanup MediaCleanup
 #
-# Writes: <hub php path> (generated), public/hub/reinventwp-apps.js, public/hub/bot.js, source/dashboard/ (readable source).
+# Writes: <hub php path> (generated), public/hub/reinventwp-apps.js, public/hub/bot.js, public/hub/hub-3d.js, source/dashboard/ (readable source).
 set -e
 cd "$(dirname "$0")/.."
 
@@ -35,7 +35,7 @@ fi
 
 rm -rf "$PLUGIN_DIR/public/hub"
 mkdir -p "$PLUGIN_DIR/public/hub"
-cp build/reinventwp-apps.js build/bot.js "$PLUGIN_DIR/public/hub/"
+cp build/reinventwp-apps.js build/bot.js build/hub-3d.js "$PLUGIN_DIR/public/hub/"
 
 # WordPress.org requires the human-readable source for built JS.
 rm -rf "$PLUGIN_DIR/source/dashboard"

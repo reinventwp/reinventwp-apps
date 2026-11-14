@@ -21,6 +21,9 @@ module.exports = (_env, argv) => {
     output: {
       path: path.resolve(__dirname, "build"),
       filename: "[name].js",
+      // The 3D hero (three.js) loads as its own file, hub-3d.js, only where it is shown.
+      // The query makes browsers fetch it again when it changes; the file on disk stays hub-3d.js.
+      chunkFilename: "[name].js?v=[contenthash:8]",
       clean: true,
     },
     module: {
@@ -34,6 +37,8 @@ module.exports = (_env, argv) => {
       static: { directory: path.resolve(__dirname, "dev") },
     },
     optimization: {
+      // Keep three.js inside hub-3d.js instead of a separate vendors file, so a plugin ships three known files.
+      splitChunks: { cacheGroups: { default: false, defaultVendors: false } },
       minimizer: [new TerserPlugin({ extractComments: false, terserOptions: { format: { comments: false } } })],
     },
     performance: { hints: false },

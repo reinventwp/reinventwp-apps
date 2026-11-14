@@ -59,3 +59,58 @@ describe("hubApps.settingUrl", () => {
     expect(hubApps.settingUrl({ ...app("reinvent-watermark", "inactive"), activate_url: "/act" }, "tabs_main")).toBe("");
   });
 });
+
+describe("reinventwp.com links", () => {
+  it("tags our own links with where they were clicked", () => {
+    const link = new URL(hubApps.siteLink("https://reinventwp.com/text-to-speech", "apps_hub", "natural-text-to-speech"));
+    expect(Object.fromEntries(link.searchParams)).toEqual({
+      utm_campaign: "reinventwp_apps",
+      utm_content: "natural-text-to-speech",
+      utm_medium: "apps_hub",
+      utm_source: "wp_admin",
+    });
+  });
+
+  it("keeps the hash and leaves other sites and tagged links alone", () => {
+    expect(hubApps.siteLink("https://reinventwp.com/text-to-speech#pricing", "assistant")).toBe(
+      "https://reinventwp.com/text-to-speech?utm_source=wp_admin&utm_medium=assistant&utm_campaign=reinventwp_apps#pricing",
+    );
+    expect(hubApps.siteLink("https://wordpress.org/plugins/x/", "apps_hub")).toBe("https://wordpress.org/plugins/x/");
+    expect(hubApps.siteLink("https://reinventwp.com/x?utm_source=bot", "apps_hub")).toBe("https://reinventwp.com/x?utm_source=bot");
+  });
+});
+
+describe("page sections", () => {
+  const withCategories = (slug: string, state: HubApp["state"], category: string, categories: string[] = []): HubApp => ({ ...app(slug, state), category, categories });
+  const apps = [
+    withCategories("natural-text-to-speech", "active", "Content", ["Popular"]),
+    withCategories("reinvent-media-cleanup", "active", "Media", ["Popular", "Must have"]),
+    withCategories("reinvent-database-cleaner", "missing", "Performance", ["Must have"]),
+    withCategories("reinvent-lightbox", "missing", "Media"),
+    withCategories("ai-agent", "missing", "AI"),
+    withCategories("reinvent-image-links", "missing", "Media"),
+  ];
+
+  it("puts every Must have app in its own section, the installed ones last", () => {
+    const { installed, mustHave, more } = hubApps.sections(apps);
+    expect(installed.map((item) => item.slug)).toEqual(["natural-text-to-speech", "reinvent-media-cleanup"]);
+    expect(mustHave.map((item) => item.slug)).toEqual(["reinvent-database-cleaner", "reinvent-media-cleanup"]);
+    expect(more.map((item) => item.slug)).toEqual(["reinvent-lightbox", "ai-agent", "reinvent-image-links"]);
+  });
+
+  it("counts the main categories for the chips and filters by them", () => {
+    const { more } = hubApps.sections(apps);
+    expect(hubApps.chips(more, "All")).toEqual([
+      { label: "All", value: "", count: 3 },
+      { label: "Media", value: "Media", count: 2 },
+      { label: "AI", value: "AI", count: 1 },
+    ]);
+    expect(hubApps.inCategory(more, "Media").map((item) => item.slug)).toEqual(["reinvent-lightbox", "reinvent-image-links"]);
+    expect(hubApps.inCategory(more, "")).toHaveLength(3);
+  });
+
+  it("treats apps from older hubs without categories as not Must have", () => {
+    const { mustHave } = hubApps.sections([{ ...app("x", "missing"), category: "Media" }]);
+    expect(mustHave).toEqual([]);
+  });
+});

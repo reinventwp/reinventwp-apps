@@ -119,7 +119,7 @@ function SuggestionCard({ suggestion, apps }: { suggestion: AssistantSuggestion;
 }
 
 /** Links to the reinventwp.com sections the answer is based on. */
-function Sources({ sources, label }: { sources: AssistantSource[]; label: string }) {
+function Sources({ sources, label, wpAdmin }: { sources: AssistantSource[]; label: string; wpAdmin: boolean }) {
   return (
     <Stack spacing={0.5}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
@@ -128,7 +128,7 @@ function Sources({ sources, label }: { sources: AssistantSource[]; label: string
       {sources.map((source) => (
         <Link
           key={source.id}
-          href={source.url}
+          href={wpAdmin ? hubApps.siteLink(source.url, "assistant") : source.url}
           target="_blank"
           rel="noopener noreferrer"
           variant="body2"
@@ -238,7 +238,7 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
       <Box sx={{ mt: "2px !important", ml: -0.5 }}>
         <MessageActions text={message.content} at={message.at} now={now} align="left" />
       </Box>
-      {Boolean(message.sources?.length) && <Sources sources={message.sources ?? []} label={strings.ask_sources} />}
+      {Boolean(message.sources?.length) && <Sources sources={message.sources ?? []} label={strings.ask_sources} wpAdmin={config.surface === "wp-admin"} />}
       {message.form === "feedback" && <FeedbackForm config={config} apps={apps} draft={draft} sent={Boolean(message.feedbackSent)} onSent={onFeedbackSent} />}
       {message.suggestions?.map((suggestion) => (
         <SuggestionCard key={suggestion.slug} suggestion={suggestion} apps={apps} />

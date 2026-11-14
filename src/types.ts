@@ -7,6 +7,8 @@ export interface HubApp {
   name: string;
   description: string;
   category: string;
+  /** The catalog's extra categories, like "Must have" or "Popular" (older hubs send none). */
+  categories?: string[];
   state: AppState;
   /** Installed version; empty when not installed. */
   version: string;
@@ -29,4 +31,6 @@ export interface HubData {
   refresh_url: string;
   /** This page without the refresh parameters. */
   page_url: string;
+  /** False when a Reinvent WP plugin on the site has a paid licence: then the Suite Pass offer stays hidden. */
+  show_suite?: boolean;
 }

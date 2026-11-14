@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.1.2';
+	const HUB_VERSION = '2.2.0';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -45,7 +45,7 @@ class {{CLASS}} {
 	/**
 	 * Cached app list (shared by every copy of this version).
 	 */
-	const CATALOG_TRANSIENT = 'reinventwp_hub_catalog_v2';
+	const CATALOG_TRANSIENT = 'reinventwp_hub_catalog_v3';
 
 	/**
 	 * Product pages on the catalog are paths on this site.
@@ -145,7 +145,7 @@ class {{CLASS}} {
 	 * @return array
 	 */
 	private static function bundled_catalog() {
-		$app = function ( $slug, $name, $description, $category, $page = '', $released = false, $href = '' ) {
+		$app = function ( $slug, $name, $description, $category, $page = '', $released = false, $href = '', $categories = array() ) {
 			return array(
 				'name'        => $name,
 				'description' => $description,
@@ -155,15 +155,16 @@ class {{CLASS}} {
 				'released'    => $released,
 				'coming_soon' => ! $released,
 				'category'    => $category,
+				'categories'  => $categories,
 				'href'        => $href,
 			);
 		};
 		return array(
 			$app( 'natural-text-to-speech', 'Text to Speech', __( 'Read posts aloud with natural voices and highlight words as they are spoken.', '{{TEXT_DOMAIN}}' ), __( 'Content', '{{TEXT_DOMAIN}}' ), 'admin.php?page=natuteto-settings', true, self::SITE_URL . '/text-to-speech' ),
-			$app( 'reinvent-media-cleanup', 'Media Cleanup', __( 'Find unused images and files and remove them safely, with a safety net.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpmc-media-cleanup', true, self::SITE_URL . '/media-cleanup' ),
+			$app( 'reinvent-media-cleanup', 'Media Cleanup', __( 'Find unused images and files and remove them safely, with a safety net.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpmc-media-cleanup', true, self::SITE_URL . '/media-cleanup', array( 'Popular', 'Must have', 'Performance' ) ),
 			$app( 'reinvent-retina-images', 'Retina Images', __( 'Sharp retina images, fix blurry or missing image sizes and free up space.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprt-thumbnails', true, self::SITE_URL . '/retina-images' ),
 			$app( 'reinvent-rename-replace-media', 'Rename & Replace Media', __( 'Give images SEO-friendly names and swap files without breaking links, with undo.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwprm-rename', true, self::SITE_URL . '/rename-replace-media' ),
-			$app( 'reinvent-database-cleaner', 'Database Cleaner', __( 'Clean up and speed up your database, see which plugin left what behind, and undo anything.', '{{TEXT_DOMAIN}}' ), __( 'Performance', '{{TEXT_DOMAIN}}' ), 'tools.php?page=rwpdc-cleaner', false, self::SITE_URL . '/database-cleaner' ),
+			$app( 'reinvent-database-cleaner', 'Database Cleaner', __( 'Clean up and speed up your database, see which plugin left what behind, and undo anything.', '{{TEXT_DOMAIN}}' ), __( 'Performance', '{{TEXT_DOMAIN}}' ), 'tools.php?page=rwpdc-cleaner', false, self::SITE_URL . '/database-cleaner', array( 'Must have' ) ),
 			$app( 'reinvent-lightbox', 'Lightbox', __( 'Open images and galleries in a fast lightbox with photo details, slideshow, zoom and shareable links.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'admin.php?page=rwplb-settings', false, self::SITE_URL . '/lightbox' ),
 			$app( 'reinvent-watermark', 'Watermark', __( 'Add a text or logo watermark to your images on upload or in bulk, and remove it any time.', '{{TEXT_DOMAIN}}' ), __( 'Media', '{{TEXT_DOMAIN}}' ), 'upload.php?page=rwpwm-watermark', true, self::SITE_URL . '/watermark' ),
 		);
@@ -279,10 +280,31 @@ class {{CLASS}} {
 				'released'    => isset( $item['released'] ) && true === $item['released'],
 				'coming_soon' => 'coming-soon' === $status,
 				'category'    => isset( $item['category'] ) ? sanitize_text_field( (string) $item['category'] ) : '',
+				'categories'  => self::clean_categories( isset( $item['extra_categories'] ) ? $item['extra_categories'] : array() ),
 				'href'        => self::product_url( isset( $item['href'] ) ? (string) $item['href'] : '' ),
 			);
 		}
 		return $apps;
+	}
+
+	/**
+	 * The catalog's extra categories of an app (like "Must have"), as plain names.
+	 *
+	 * @param mixed $names Raw "extra_categories" value from the API.
+	 * @return string[]
+	 */
+	private static function clean_categories( $names ) {
+		if ( ! is_array( $names ) ) {
+			return array();
+		}
+		$clean = array();
+		foreach ( array_slice( $names, 0, 10 ) as $name ) {
+			$name = is_string( $name ) ? sanitize_text_field( $name ) : '';
+			if ( '' !== $name ) {
+				$clean[] = $name;
+			}
+		}
+		return $clean;
 	}
 
 	/**
@@ -345,6 +367,7 @@ class {{CLASS}} {
 				'name'         => $app['name'],
 				'description'  => $app['description'],
 				'category'     => $app['category'],
+				'categories'   => isset( $app['categories'] ) && is_array( $app['categories'] ) ? array_values( $app['categories'] ) : array(),
 				'state'        => $is_active ? 'active' : ( $is_installed ? 'inactive' : 'missing' ),
 				'version'      => $is_installed ? (string) $installed[ $app['file'] ]['Version'] : '',
 				'open_url'     => $is_active && ! empty( $app['page'] ) ? admin_url( $app['page'] ) : '',
@@ -479,6 +502,11 @@ class {{CLASS}} {
 				admin_url( 'admin.php?page=' . self::SLUG )
 			),
 			'page_url'    => admin_url( 'admin.php?page=' . self::SLUG ),
+			/*
+			 * The Suite Pass offer is for sites without a paid licence only: a plugin with PRO
+			 * returns true here (Text to Speech: its Freemius licence), and the offer stays hidden.
+			 */
+			'show_suite'  => ! apply_filters( 'reinventwp_hub_has_paid_license', false ),
 		);
 		wp_add_inline_script( 'reinventwp-apps', 'window.reinventwpApps = ' . wp_json_encode( $data ) . ';', 'before' );
 	}
