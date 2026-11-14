@@ -36,7 +36,7 @@ It first saves the local site's real page data (`wp eval-file scripts/dev-data.p
 ./scripts/install-into.sh ../natural-text-to-speech/plugin components/class-natuteto-hub.php Natuteto_Hub natural-text-to-speech NaturalTextToSpeech
 ```
 
-Installed in: Media Cleanup, Text to Speech. Both release preps (`npm run prep`) re-run it. When two copies share the same `HUB_VERSION`, the plugin WordPress loads first serves the page, so same version must mean same code.
+Installed in: Text to Speech, Media Cleanup, Retina Images, Rename & Replace Media and Watermark. Their release steps re-run it: `admin/scripts/prepare.sh` (`npm run prep`) in the first four, `scripts/deliver.sh` in Watermark, which has no build step. A new approved plugin must call it from its release step too. When two copies share the same `HUB_VERSION`, the plugin WordPress loads first serves the page, so same version must mean same code.
 
 Then in that plugin: git-ignore `public/hub/`, call the script from its release prep, check `public/hub/*` exists before delivering, keep `public/hub/*` and `source/*` out of phpcs, and disclose the catalog download under **External services** in `readme.txt` (copy Media Cleanup's item 3). Bump the plugin version; the hub version only changes when this page changes.
 
