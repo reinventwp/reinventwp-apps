@@ -4,19 +4,22 @@ import { Box, ButtonBase, IconButton, Tooltip } from "@mui/material";
 import { NEUTRAL_BORDER } from "../theme";
 
 interface ChatLauncherProps {
+  /** Bottom corner the button sits in. */
+  side: "left" | "right";
   label: string;
   restoreLabel: string;
   onOpen: () => void;
   onRestore: () => void;
 }
 
-/** The minimized assistant: a chat icon at the bottom right that opens the panel. */
-export default function ChatLauncher({ label, restoreLabel, onOpen, onRestore }: ChatLauncherProps) {
+/** The minimized assistant: a chat icon in a bottom corner that opens the panel. */
+export default function ChatLauncher({ side, label, restoreLabel, onOpen, onRestore }: ChatLauncherProps) {
+  const tooltip = side === "left" ? "right" : "left";
   return (
     <Box
       sx={{
         position: "fixed",
-        right: 20,
+        [side]: 20,
         bottom: 20,
         zIndex: 9988,
         "& .rwp-restore": { opacity: 0, transition: "opacity 0.15s ease" },
@@ -24,7 +27,7 @@ export default function ChatLauncher({ label, restoreLabel, onOpen, onRestore }:
         "@media (hover: none)": { "& .rwp-restore": { opacity: 1 } },
       }}
     >
-      <Tooltip title={label} placement="left">
+      <Tooltip title={label} placement={tooltip}>
         <ButtonBase
           onClick={onOpen}
           aria-haspopup="dialog"
@@ -42,7 +45,7 @@ export default function ChatLauncher({ label, restoreLabel, onOpen, onRestore }:
           <ChatRoundedIcon />
         </ButtonBase>
       </Tooltip>
-      <Tooltip title={restoreLabel} placement="left">
+      <Tooltip title={restoreLabel} placement={tooltip}>
         <IconButton
           className="rwp-restore"
           size="small"
@@ -51,7 +54,7 @@ export default function ChatLauncher({ label, restoreLabel, onOpen, onRestore }:
           sx={{
             position: "absolute",
             top: -10,
-            left: -10,
+            [side === "left" ? "right" : "left"]: -10,
             width: 24,
             height: 24,
             bgcolor: "#FFFFFF",

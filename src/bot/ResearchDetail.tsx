@@ -8,6 +8,7 @@ import hubApps from "../apps";
 import strings from "../strings";
 import type { HubApp } from "../types";
 import type { AssistantResearch } from "./useAssistant";
+import { LINK_SX } from "./linkStyle";
 
 /** "%d search…" with the singular or plural string. */
 const count = (n: number, one: string, many: string) => (n === 1 ? one : many).replace("%d", String(n));
@@ -82,10 +83,10 @@ export default function ResearchDetail({ research, apps }: { research: Assistant
                           href={href}
                           target={section.url ? "_blank" : undefined}
                           rel={section.url ? "noopener noreferrer" : undefined}
-                          underline="hover"
+                          underline="always"
                           variant="caption"
                           title={label}
-                          sx={{ fontSize: "0.8rem", color: "text.secondary", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", "&:hover, &:focus": { color: "primary.main" } }}
+                          sx={{ ...LINK_SX, fontSize: "0.8rem", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                         >
                           {label}
                         </Link>

@@ -1,6 +1,7 @@
-import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
+import KeyboardReturnRoundedIcon from "@mui/icons-material/KeyboardReturnRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import MinimizeRoundedIcon from "@mui/icons-material/MinimizeRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
@@ -9,14 +10,12 @@ import {
   Button,
   ButtonBase,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
+  FormControlLabel,
   IconButton,
   InputBase,
   Link,
+  Radio,
+  RadioGroup,
   Stack,
   Tooltip,
   Typography,
@@ -33,16 +32,25 @@ import MessageActions from "./MessageActions";
 import { useNow } from "./time";
 import { imageSrc, MAX_IMAGES, prepareImage, type PreparedImage } from "./images";
 import ResearchDetail from "./ResearchDetail";
+import { LINK_SX } from "./linkStyle";
 import { fileSummary, isTextFile, prepareTextFile, TEXT_EXTENSIONS, type PreparedFile } from "./textFile";
 import TextViewer from "./TextViewer";
 import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
+import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
+import ButtonDialog from "./ButtonDialog";
 import type { HubApp } from "../types";
 import type { BotConfig } from "./types";
 import type { AssistantSource, AssistantSuggestion, ChatMessage } from "./useAssistant";
 
 /** Width of the panel on wide screens; the page makes room for it. */
 export const PANEL_WIDTH = 400;
+
+/** Chat background: a soft off-white, so the white composer box and answer cards stand out (like Claude). */
+const CHAT_BG = "#F7F7F5";
+
+/** Space between the floating panel ("Over the page") and the window edges, in px. */
+const FLOAT_GAP = 12;
 
 interface AssistantPanelProps {
   apps: HubApp[];
@@ -58,8 +66,21 @@ interface AssistantPanelProps {
   onApprove: (approved: boolean) => void;
   onSend: (text: string, images: PreparedImage[], file: PreparedFile | null) => void;
   onReset: () => void;
+  /** Minimizes the panel back to the ask bar or the corner button. */
   onClose: () => void;
   onFeedbackSent: (index: number) => void;
+  /** Where the closed assistant sits; changed in the settings dialog. */
+  placement: Placement;
+  onPlacementChange: (placement: Placement) => void;
+  /** Whether the open panel sits beside the page (the page narrows) or over it. */
+  panelMode: PanelMode;
+  onPanelModeChange: (mode: PanelMode) => void;
+}
+
+/** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
+function agentPageUrl(surface: BotConfig["surface"]): string {
+  if (surface === "website") return "/ai-agent";
+  return "https://reinventwp.com/ai-agent?utm_source=wp_admin&utm_medium=plugin_ui&utm_campaign=reinventwp_assistant&utm_content=panel_title";
 }
 
 /**
@@ -77,14 +98,7 @@ function SuggestionCard({ suggestion, apps }: { suggestion: AssistantSuggestion;
         : null;
 
   return (
-    <Box
-      sx={{
-        border: NEUTRAL_BORDER,
-        borderRadius: 2,
-        p: 1.5,
-        bgcolor: "#FFFFFF",
-      }}
-    >
+    <Box sx={{ border: NEUTRAL_BORDER, borderRadius: 2, p: 1.5, bgcolor: "#FFFFFF" }}>
       <Typography variant="subtitle2" component="p">
         {app?.name ?? suggestion.title}
       </Typography>
@@ -137,8 +151,13 @@ function Sources({ sources, label, wpAdmin }: { sources: AssistantSource[]; labe
           target="_blank"
           rel="noopener noreferrer"
           variant="body2"
-          underline="hover"
-          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, "&:hover, &:focus": { color: "primary.main" } }}
+          underline="always"
+          sx={{
+            ...LINK_SX,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.5,
+          }}
         >
           <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
             {source.title}
@@ -180,16 +199,7 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
   if (message.role === "user") {
     return (
       <Stack alignItems="flex-end" spacing={0.25} sx={showActionsOnHover}>
-        <Box
-          sx={{
-            alignSelf: "flex-end",
-            maxWidth: "85%",
-            px: 1.5,
-            py: 1,
-            borderRadius: 2,
-            bgcolor: "rgba(7, 21, 34, 0.05)",
-          }}
-        >
+        <Box sx={{ alignSelf: "flex-end", maxWidth: "85%", px: 1.5, py: 1, borderRadius: 2, bgcolor: "rgba(7, 21, 34, 0.05)" }}>
           {Boolean(message.images?.length) && (
             <Stack direction="row" spacing={0.75} sx={{ mb: message.content ? 0.75 : 0, justifyContent: "flex-end" }}>
               {message.images?.map((src, index) => (
@@ -217,7 +227,11 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
                 summary={message.file.summary}
                 onClick={
                   message.fileText && message.file
-                    ? () => onViewFile({ ...(message.file as { name: string; summary: string }), text: message.fileText ?? "" })
+                    ? () =>
+                        onViewFile({
+                          ...(message.file as { name: string; summary: string }),
+                          text: message.fileText ?? "",
+                        })
                     : undefined
                 }
               />
@@ -248,8 +262,12 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
           <MessageActions text={message.content} at={message.at} now={now} align="left" />
         </Box>
       )}
-      {Boolean(message.sources?.length) && <Sources sources={message.sources ?? []} label={strings.ask_sources} wpAdmin={config.surface === "wp-admin"} />}
-      {message.form === "feedback" && <FeedbackForm config={config} apps={apps} draft={draft} sent={Boolean(message.feedbackSent)} onSent={onFeedbackSent} />}
+      {Boolean(message.sources?.length) && (
+        <Sources sources={message.sources ?? []} label={strings.ask_sources} wpAdmin={config.surface === "wp-admin"} />
+      )}
+      {message.form === "feedback" && (
+        <FeedbackForm config={config} apps={apps} draft={draft} sent={Boolean(message.feedbackSent)} onSent={onFeedbackSent} />
+      )}
       {message.suggestions?.map((suggestion) => (
         <SuggestionCard key={suggestion.slug} suggestion={suggestion} apps={apps} />
       ))}
@@ -261,10 +279,25 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
  * The assistant, docked on the right like a side panel. The page beside it narrows on wide
  * screens; on phones it covers the page.
  */
-export default function AssistantPanel({ apps, surface, messages, loading, running, onApprove, onSend, onReset, onClose, config, onFeedbackSent }: AssistantPanelProps) {
+export default function AssistantPanel({
+  apps,
+  surface,
+  messages,
+  loading,
+  running,
+  onApprove,
+  onSend,
+  onReset,
+  onClose,
+  config,
+  onFeedbackSent,
+  placement,
+  onPlacementChange,
+  panelMode,
+  onPanelModeChange,
+}: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
-  const [confirmingReset, setConfirmingReset] = useState(false);
   const now = useNow();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -321,6 +354,9 @@ export default function AssistantPanel({ apps, surface, messages, loading, runni
     void addFiles(Array.from(event.dataTransfer.files));
   };
 
+  // The send button shows only when there is something to send, so an empty field stays one clean line.
+  const canSend = Boolean(draft.trim() || attachments.length || file);
+
   const submit = (text: string) => {
     if ((!text.trim() && !attachments.length && !file) || loading) return;
     onSend(text, attachments, file);
@@ -335,7 +371,7 @@ export default function AssistantPanel({ apps, surface, messages, loading, runni
       event.preventDefault();
       submit(draft);
     }
-    if (event.key === "Escape" && !confirmingReset) onClose();
+    if (event.key === "Escape") onClose();
   };
 
   return (
@@ -348,37 +384,171 @@ export default function AssistantPanel({ apps, surface, messages, loading, runni
       sx={{
         position: "fixed",
         top: surface === "wp-admin" ? 46 : 0,
-        "@media (min-width: 783px)": { top: surface === "wp-admin" ? 32 : 0 },
         right: 0,
         bottom: 0,
         width: { xs: "100%", sm: PANEL_WIDTH },
         display: "flex",
         flexDirection: "column",
-        bgcolor: "#FFFFFF",
+        bgcolor: CHAT_BG,
         borderLeft: NEUTRAL_BORDER,
+        // A soft shadow instead of a hard edge beside the page.
+        boxShadow: "-6px 0 20px rgba(7, 21, 34, 0.06)",
+        overflow: "hidden",
+        // Over the page (not on phones, where it fills the screen) it floats as a card: inset from
+        // the edges, rounded on all four corners, with a deeper shadow.
+        ...(panelMode === "over" && {
+          "@media (min-width: 600px)": {
+            top: (surface === "wp-admin" ? 46 : 0) + FLOAT_GAP,
+            right: FLOAT_GAP,
+            bottom: FLOAT_GAP,
+            border: NEUTRAL_BORDER,
+            borderRadius: "16px",
+            boxShadow: "0 12px 40px rgba(7, 21, 34, 0.16)",
+          },
+        }),
+        "@media (min-width: 783px)": { top: (surface === "wp-admin" ? 32 : 0) + (panelMode === "over" ? FLOAT_GAP : 0) },
         zIndex: 9989,
         color: "text.primary",
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1.25, borderBottom: NEUTRAL_BORDER }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={0.5}
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          px: 2,
+          py: 1.25,
+          borderBottom: NEUTRAL_BORDER,
+          // The chat fades in under the header, like it fades out above the composer.
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: "100%",
+            height: 20,
+            background: `linear-gradient(to top, rgba(247, 247, 245, 0), ${CHAT_BG})`,
+            pointerEvents: "none",
+          },
+        }}
+      >
         <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          {strings.ask_title}
+          <Link
+            href={agentPageUrl(surface)}
+            target={surface === "website" ? undefined : "_blank"}
+            rel={surface === "website" ? undefined : "noopener"}
+            underline="always"
+            color="inherit"
+            sx={{
+              textDecorationColor: "currentColor",
+              textUnderlineOffset: "0.18em",
+              "&:visited, &:hover, &:focus, &:active": { color: "inherit" },
+            }}
+          >
+            {strings.ask_title}
+          </Link>
         </Typography>
-        <Tooltip title={strings.ask_new}>
-          <span>
-            <Button
-              size="small"
-              startIcon={<AddRoundedIcon />}
-              onClick={() => setConfirmingReset(true)}
-              disabled={!messages.length || loading}
-            >
-              {strings.ask_new}
-            </Button>
-          </span>
-        </Tooltip>
+        <ButtonDialog
+          title={strings.ask_new_title}
+          closeLabel={strings.ask_dialog_close}
+          button={(open) => (
+            <Tooltip title={strings.ask_new}>
+              <span>
+                <IconButton aria-label={strings.ask_new} onClick={open} disabled={!messages.length || loading} size="small">
+                  <AddRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+        >
+          {(close) => (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {strings.ask_new_text}
+              </Typography>
+              <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
+                <Button onClick={close}>{strings.ask_cancel}</Button>
+                <Button
+                  variant="contained"
+                  disableElevation
+                  onClick={() => {
+                    close();
+                    onReset();
+                    inputRef.current?.focus();
+                  }}
+                >
+                  {strings.ask_new}
+                </Button>
+              </Stack>
+            </>
+          )}
+        </ButtonDialog>
+        <ButtonDialog
+          title={strings.ask_settings_title}
+          closeLabel={strings.ask_dialog_close}
+          button={(open) => (
+            <Tooltip title={strings.ask_settings_title}>
+              <IconButton aria-label={strings.ask_settings_title} onClick={open} size="small">
+                <SettingsRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        >
+          {() => (
+            <>
+              <Typography variant="subtitle2" component="p">
+                {strings.ask_panel_mode}
+              </Typography>
+              <RadioGroup
+                value={panelMode}
+                onChange={(event) => onPanelModeChange(event.target.value as PanelMode)}
+                aria-label={strings.ask_panel_mode}
+                sx={{ mb: 2 }}
+              >
+                {PANEL_MODES.map((option) => (
+                  <FormControlLabel
+                    key={option}
+                    value={option}
+                    control={<Radio size="small" />}
+                    label={
+                      <Box sx={{ py: 0.5 }}>
+                        <Typography variant="body2">{strings.ask_panel_mode_options[option].label}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {strings.ask_panel_mode_options[option].help}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                ))}
+              </RadioGroup>
+              <Typography variant="subtitle2" component="p">
+                {strings.ask_placement}
+              </Typography>
+              <RadioGroup
+                value={placement}
+                onChange={(event) => onPlacementChange(event.target.value as Placement)}
+                aria-label={strings.ask_placement}
+              >
+                {PLACEMENTS.map((option) => (
+                  <FormControlLabel
+                    key={option}
+                    value={option}
+                    control={<Radio size="small" />}
+                    label={<Typography variant="body2">{strings.ask_placement_options[option]}</Typography>}
+                  />
+                ))}
+              </RadioGroup>
+              <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5 }}>
+                {strings.ask_settings_saved}
+              </Typography>
+            </>
+          )}
+        </ButtonDialog>
         <Tooltip title={strings.ask_close}>
           <IconButton aria-label={strings.ask_close} onClick={onClose} size="small">
-            <CloseRoundedIcon />
+            <MinimizeRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Stack>
@@ -396,11 +566,7 @@ export default function AssistantPanel({ apps, surface, messages, loading, runni
                   label={example}
                   variant="outlined"
                   onClick={() => submit(example)}
-                  sx={{
-                    height: "auto",
-                    py: 0.5,
-                    "& .MuiChip-label": { whiteSpace: "normal" },
-                  }}
+                  sx={{ height: "auto", py: 0.5, "& .MuiChip-label": { whiteSpace: "normal" } }}
                 />
               ))}
             </Stack>
@@ -429,144 +595,164 @@ export default function AssistantPanel({ apps, surface, messages, loading, runni
                 ? [`${running}…`]
                 : last?.working
                   ? [strings.ask_thinking]
-                  : thinkingSteps({
-                      image: Boolean(last?.images?.length),
-                      file: Boolean(last?.file),
-                      wpAdmin: surface === "wp-admin",
-                    })
+                  : thinkingSteps({ image: Boolean(last?.images?.length), file: Boolean(last?.file), wpAdmin: surface === "wp-admin" })
             }
           />
         )}
         <div ref={endRef} />
       </Stack>
 
-      <Box sx={{ px: 2, pb: 2, pt: 1 }}>
-        <AttachmentStrip
-          images={attachments}
-          file={file}
-          error={attachError}
-          onRemoveFile={() => setFile(null)}
-          onViewFile={() => file && setViewingFile({ name: file.name, summary: fileSummary(file), text: file.text })}
-          onRemove={(index) => setAttachments((current) => current.filter((_image, at) => at !== index))}
-          onView={(image) => setViewing(imageSrc(image))}
-        />
-        <Stack
-          direction="row"
-          alignItems="flex-end"
-          spacing={1}
+      <Box
+        sx={{
+          position: "relative",
+          px: 1.5,
+          pb: 1.5,
+          pt: 0.5,
+          bgcolor: CHAT_BG,
+          // The chat fades out above the composer instead of ending on a hard line.
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: -20,
+            height: 20,
+            background: `linear-gradient(to bottom, rgba(247, 247, 245, 0), ${CHAT_BG})`,
+            pointerEvents: "none",
+          },
+        }}
+      >
+        <Box
           sx={{
-            border: NEUTRAL_BORDER,
-            borderRadius: 3,
-            pl: 1.75,
-            pr: 0.75,
+            bgcolor: "#FFFFFF",
+            border: "1px solid rgba(7, 21, 34, 0.12)",
+            borderRadius: "20px",
+            px: 0.75,
             py: 0.75,
-            "&:focus-within": { borderColor: "primary.main" },
+            boxShadow: "0 4px 20px rgba(7, 21, 34, 0.05)",
+            transition: "box-shadow 0.2s ease, border-color 0.2s ease",
+            "&:hover": { borderColor: "rgba(7, 21, 34, 0.2)" },
+            "&:focus-within": { borderColor: "rgba(7, 21, 34, 0.24)", boxShadow: "0 6px 28px rgba(7, 21, 34, 0.11)" },
           }}
         >
-          <Tooltip title={attachments.length >= MAX_IMAGES && file ? strings.ask_image_limit : strings.ask_attach}>
-            <span>
-              <IconButton
-                aria-label={strings.ask_attach}
-                onClick={() => fileRef.current?.click()}
-                disabled={(attachments.length >= MAX_IMAGES && Boolean(file)) || loading}
-                sx={{ width: 34, height: 34, ml: -1, color: "text.secondary", "&:hover, &:focus": { color: "primary.main" } }}
-              >
-                <AddRoundedIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <input
-            ref={fileRef}
-            type="file"
-            accept={["image/png,image/jpeg,image/webp,image/gif", ...TEXT_EXTENSIONS, "text/plain,application/json"].join(",")}
-            multiple
-            hidden
-            onChange={(event) => {
-              void addFiles(Array.from(event.target.files ?? []));
-              event.target.value = "";
-            }}
+          <AttachmentStrip
+            images={attachments}
+            file={file}
+            error={attachError}
+            onRemoveFile={() => setFile(null)}
+            onViewFile={() => file && setViewingFile({ name: file.name, summary: fileSummary(file), text: file.text })}
+            onRemove={(index) => setAttachments((current) => current.filter((_image, at) => at !== index))}
+            onView={(image) => setViewing(imageSrc(image))}
           />
-          <InputBase
-            inputRef={inputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-            placeholder={strings.ask}
-            multiline
-            maxRows={5}
-            inputProps={{ maxLength: 500, "aria-label": strings.ask }}
-            sx={{
-              flexGrow: 1,
-              py: 0.5,
-              fontSize: "0.95rem",
-              // wp-admin styles every textarea (border, focus ring, padding); this one has its own frame.
-              "& textarea, & textarea:focus": {
-                border: 0,
-                boxShadow: "none",
-                outline: 0,
-                background: "transparent",
-                padding: 0,
-                borderRadius: 0,
-                minHeight: 0,
-              },
-            }}
-          />
-          <Tooltip title={strings.ask_send}>
-            <span>
-              <IconButton
-                aria-label={strings.ask_send}
-                onClick={() => submit(draft)}
-                disabled={(!draft.trim() && !attachments.length && !file) || loading}
+          <Stack direction="row" alignItems="flex-end" spacing={0.5}>
+            <Tooltip title={attachments.length >= MAX_IMAGES && file ? strings.ask_image_limit : strings.ask_attach}>
+              <span>
+                <IconButton
+                  aria-label={strings.ask_attach}
+                  onClick={() => fileRef.current?.click()}
+                  disabled={(attachments.length >= MAX_IMAGES && Boolean(file)) || loading}
+                  sx={{ width: 34, height: 34, color: "text.secondary", "&:hover, &:focus": { color: "primary.main" } }}
+                >
+                  <AddRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={["image/png,image/jpeg,image/webp,image/gif", ...TEXT_EXTENSIONS, "text/plain,application/json"].join(",")}
+              multiple
+              hidden
+              onChange={(event) => {
+                void addFiles(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
+            />
+            <InputBase
+              inputRef={inputRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+              placeholder={strings.ask}
+              multiline
+              maxRows={5}
+              inputProps={{ maxLength: 500, "aria-label": strings.ask }}
+              sx={{
+                flexGrow: 1,
+                alignSelf: "center",
+                px: 0.25,
+                py: 0.75,
+                fontSize: "0.95rem",
+                // wp-admin styles every textarea (border, focus ring, padding); this one has its own frame.
+                "& textarea, & textarea:focus": {
+                  border: 0,
+                  boxShadow: "none",
+                  outline: 0,
+                  background: "transparent",
+                  padding: 0,
+                  borderRadius: 0,
+                  minHeight: 0,
+                },
+              }}
+            />
+            {canSend && (
+              <Tooltip title={strings.ask_send}>
+                <span>
+                  <IconButton
+                    aria-label={strings.ask_send}
+                    onClick={() => submit(draft)}
+                    disabled={loading}
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: "10px",
+                      bgcolor: "primary.main",
+                      color: "#FFFFFF",
+                      "&:hover, &:focus, &:active": { bgcolor: "primary.dark", color: "#FFFFFF" },
+                      "&.Mui-disabled": { bgcolor: "rgba(7, 21, 34, 0.12)", color: "#FFFFFF" },
+                    }}
+                  >
+                    <KeyboardReturnRoundedIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+          </Stack>
+        </Box>
+        <Box sx={{ mt: 0.5, px: 1, textAlign: "right" }}>
+          <ButtonDialog
+            title={strings.ask_privacy_title}
+            closeLabel={strings.ask_dialog_close}
+            button={(open) => (
+              <Link
+                component="button"
+                type="button"
+                onClick={open}
+                variant="caption"
+                underline="always"
                 sx={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 2,
-                  bgcolor: "primary.main",
-                  color: "#FFFFFF",
-                  "&:hover, &:focus, &:active": {
-                    bgcolor: "primary.dark",
-                    color: "#FFFFFF",
-                  },
-                  "&.Mui-disabled": {
-                    bgcolor: "rgba(7, 21, 34, 0.12)",
-                    color: "#FFFFFF",
-                  },
+                  color: "text.secondary",
+                  textDecorationColor: "currentColor",
+                  textUnderlineOffset: "0.18em",
+                  "&:visited, &:hover, &:focus, &:active": { color: "text.secondary" },
                 }}
               >
-                <ArrowUpwardRoundedIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Stack>
-        <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.75, textAlign: "center" }}>
-          {surface === "wp-admin" ? strings.ask_notice : strings.ask_notice_website}
-        </Typography>
+                {strings.ask_privacy}
+              </Link>
+            )}
+          >
+            {() => (
+              <Typography variant="body2" color="text.secondary">
+                {surface === "wp-admin" ? strings.ask_notice : strings.ask_notice_website}
+              </Typography>
+            )}
+          </ButtonDialog>
+        </Box>
       </Box>
 
       <ImageViewer src={viewing} onClose={() => setViewing(null)} />
       <TextViewer file={viewingFile} onClose={() => setViewingFile(null)} />
-
-      <Dialog open={confirmingReset} onClose={() => setConfirmingReset(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{strings.ask_new_title}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{strings.ask_new_text}</DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmingReset(false)}>{strings.ask_cancel}</Button>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={() => {
-              setConfirmingReset(false);
-              onReset();
-              inputRef.current?.focus();
-            }}
-          >
-            {strings.ask_new}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }
