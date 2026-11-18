@@ -35,6 +35,8 @@ export interface BotAgentConfig {
   run: string;
   /** wp_rest nonce, sent as X-WP-Nonce. */
   nonce: string;
+  /** AI Agent REST `chats`: where chats are saved (AI Agent 1.0.5+); without it chats aren't saved. */
+  chats?: string;
 }
 
 /** A site tool from `GET bot/tools`: one WordPress ability. */

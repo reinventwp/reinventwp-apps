@@ -14,6 +14,7 @@ import {
   type AssistantReply,
   type StepView,
 } from "./agent";
+import { chatsApi, chatsConfig } from "./chats";
 import { imageSrc, type PreparedImage } from "./images";
 import { fileSummary, type PreparedFile } from "./textFile";
 import type { AgentStep, AgentTool, BotAgentConfig, BotConfig } from "./types";
@@ -92,6 +93,33 @@ export interface ChatMessage {
 }
 
 const STORAGE_KEY = "reinventwp_apps_assistant";
+/** The saved chat (AI Agent) this tab's conversation belongs to, so a reload keeps saving into it. */
+const CHAT_KEY = "reinventwp_apps_assistant_chat";
+/** Wait this long after an answer before saving it, so a quick follow-up saves once. */
+const SAVE_DELAY_MS = 700;
+
+function readChatId(): number | null {
+  try {
+    const value = Number(sessionStorage.getItem(CHAT_KEY));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeChatId(id: number | null): void {
+  try {
+    if (id) sessionStorage.setItem(CHAT_KEY, String(id));
+    else sessionStorage.removeItem(CHAT_KEY);
+  } catch {
+    // Without storage a reload starts a new saved chat.
+  }
+}
+
+/** What is saved: no full-size screenshots or file texts (memory only), no unfinished state. */
+function savable(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((message) => !message.working).map(({ full: _full, fileText: _fileText, approval: _approval, ...message }) => message);
+}
 /** Turns sent with each question (the service keeps at most 6). */
 const HISTORY_TURNS = 6;
 
@@ -148,6 +176,46 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
   const approvalRef = useRef<((approved: boolean) => void) | null>(null);
   // Tools never run on reinventwp.com.
   const agent = surface === "wp-admin" ? agentConfig : undefined;
+  // With AI Agent active, every finished answer is saved in WordPress (see chats.ts).
+  const chats = chatsConfig(agent);
+  const [chatId, setChatIdState] = useState<number | null>(readChatId);
+  const chatIdRef = useRef(chatId);
+  /** The JSON last saved or opened, so the same conversation is never saved twice. */
+  const savedRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  /** Bumped after each save, so lists (the history dialog, AI Agent's sidebar) refresh. */
+  const [savedAt, setSavedAt] = useState(0);
+
+  const setChatId = useCallback((id: number | null) => {
+    chatIdRef.current = id;
+    setChatIdState(id);
+    writeChatId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!chats || loading || !messages.length) return undefined;
+    const toSave = savable(messages);
+    const json = JSON.stringify(toSave);
+    if (!toSave.length || json === savedRef.current) return undefined;
+    const timer = window.setTimeout(async () => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      savedRef.current = json;
+      try {
+        const id = chatIdRef.current;
+        if (id) await chatsApi.update(chats, id, { messages: toSave });
+        else setChatId((await chatsApi.create(chats, toSave)).id);
+        setSavedAt(Date.now());
+      } catch (error) {
+        savedRef.current = null;
+        console.error("Reinvent WP Assistant: saving the chat failed", error);
+      } finally {
+        savingRef.current = false;
+      }
+    }, SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chats is rebuilt from agent each render; its values are what matter.
+  }, [chats?.chats, chats?.nonce, loading, messages, setChatId]);
 
   useEffect(() => {
     try {
@@ -256,12 +324,37 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
     resolve(approved);
   }, []);
 
-  const reset = useCallback(() => setMessages([]), []);
+  const reset = useCallback(() => {
+    setMessages([]);
+    savedRef.current = null;
+    setChatId(null);
+  }, [setChatId]);
+
+  /** Shows a saved conversation (a host page's chat history); unfinished tool runs are settled. */
+  const loadSaved = useCallback((saved: ChatMessage[]) => setMessages(saved.map(settle)), []);
+
+  /** Opens a saved chat (AI Agent): its messages replace the conversation, and new answers save into it. */
+  const openChat = useCallback(
+    async (id: number) => {
+      if (!chats || loading) return;
+      try {
+        const chat = await chatsApi.get(chats, id);
+        const saved = (Array.isArray(chat.messages) ? chat.messages : []) as ChatMessage[];
+        savedRef.current = JSON.stringify(saved);
+        setChatId(id);
+        setMessages(saved.map(settle));
+      } catch (error) {
+        console.error("Reinvent WP Assistant: opening the chat failed", error);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see the save effect.
+    [chats?.chats, chats?.nonce, loading, setChatId],
+  );
 
   /** Marks a message's feedback form as sent, so it shows "sent" even after a reload. */
   const markFeedbackSent = useCallback((index: number) => {
     setMessages((current) => current.map((message, at) => (at === index ? { ...message, feedbackSent: true } : message)));
   }, []);
 
-  return { messages, loading, running, send, reset, markFeedbackSent, answerApproval };
+  return { messages, loading, running, send, reset, loadSaved, openChat, chats, chatId, savedAt, markFeedbackSent, answerApproval };
 }

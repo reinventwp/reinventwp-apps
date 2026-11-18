@@ -2,6 +2,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { embedStore } from "./embed";
+import type { ChatMessage } from "./useAssistant";
 import strings, { ASK_TYPING } from "../strings";
 import theme from "../theme";
 import AskBar from "./AskBar";
@@ -30,13 +31,27 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
   const [placement, setPlacement] = usePlacement();
   const [panelMode, setPanelMode] = usePanelMode();
   const open = available && asking;
-  const assistant = useAssistant(config, strings.ask_error, apps, agent);
+  // A host page may hand over the agent config (the AI Agent dev server has no printed one).
+  const hostAgent = useSyncExternalStore(embedStore.subscribe, embedStore.agent, () => undefined);
+  const assistant = useAssistant(config, strings.ask_error, apps, agent ?? hostAgent);
   const anchor = useAnchor(config.shift);
   // A host page (AI Agent's admin) can draw the chat inside its own layout; see embed.ts.
   const host = useSyncExternalStore(embedStore.subscribe, embedStore.host, () => null);
   const hosted = useSyncExternalStore(embedStore.subscribe, embedStore.hosted, () => false);
   useShift(config.shift, !hosted && open && panelMode === "beside", PANEL_WIDTH + 20);
   useEffect(() => embedStore.onNewChat(assistant.reset), [assistant.reset]);
+  useEffect(() => embedStore.onLoad((saved) => assistant.loadSaved(saved as ChatMessage[])), [assistant.loadSaved]);
+  useEffect(() => embedStore.onOpenChat((id) => void assistant.openChat(id)), [assistant.openChat]);
+  // Tell a host page about every change, so it can save the chat (screenshots full size and file texts stay in memory).
+  useEffect(() => {
+    if (!hosted) return;
+    embedStore.emitChange({
+      messages: assistant.messages.map(({ full: _full, fileText: _fileText, ...message }) => message),
+      busy: assistant.loading,
+      chatId: assistant.chatId,
+      savedAt: assistant.savedAt,
+    });
+  }, [hosted, assistant.messages, assistant.loading, assistant.chatId, assistant.savedAt]);
 
   if (hosted) {
     // On a host page the floating ask bar and panel stay hidden; the chat lives in the host's layout.
@@ -61,6 +76,10 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
               panelMode={panelMode}
               onPanelModeChange={setPanelMode}
               onFeedbackSent={assistant.markFeedbackSent}
+              chats={assistant.chats}
+              chatId={assistant.chatId}
+              savedAt={assistant.savedAt}
+              onOpenChat={(id) => void assistant.openChat(id)}
             />,
             host,
           )}
@@ -106,6 +125,10 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
           panelMode={panelMode}
           onPanelModeChange={setPanelMode}
           onFeedbackSent={assistant.markFeedbackSent}
+          chats={assistant.chats}
+          chatId={assistant.chatId}
+          savedAt={assistant.savedAt}
+          onOpenChat={(id) => void assistant.openChat(id)}
         />
       )}
     </ThemeProvider>

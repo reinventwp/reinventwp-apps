@@ -38,6 +38,8 @@ import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
 import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
+import ChatHistory from "./ChatHistory";
+import type { ChatsConfig } from "./chats";
 import SoulIntro, { AGENT_BLUE, AGENT_SHIMMER } from "./SoulIntro";
 import { OptionCard, PanelModePreview, PlacementPreview } from "./SettingsPreview";
 import { HANDLE_CURSOR, HANDLES, useFloatingPanel, type Handle } from "./floating";
@@ -57,6 +59,9 @@ const HEADER_BG_HOVER = "#E4E4E0";
 
 /** Space between the floating panel ("Over the page") and the window edges, in px. */
 const FLOAT_GAP = 12;
+
+/** AI Agent on WordPress.org: where to get it when this site can't install it from here. */
+const AGENT_PLUGIN_URL = "https://wordpress.org/plugins/ai-agent/";
 
 /** Embedded in a host page: fills the host's box, no frame of its own. */
 const EMBEDDED_SX = {
@@ -102,6 +107,11 @@ interface AssistantPanelProps {
    * header (the host has its own), no drag or resize, the conversation in a centred column.
    */
   embedded?: boolean;
+  /** Chats saved in WordPress (AI Agent active): the header gets a history button. */
+  chats?: ChatsConfig | null;
+  chatId?: number | null;
+  savedAt?: number;
+  onOpenChat?: (id: number) => void;
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
@@ -323,6 +333,10 @@ export default function AssistantPanel({
   panelMode,
   onPanelModeChange,
   embedded = false,
+  chats = null,
+  chatId = null,
+  savedAt = 0,
+  onOpenChat,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -518,6 +532,9 @@ export default function AssistantPanel({
             </Link>
           )}
         </Typography>
+        {chats && (
+          <ChatHistory config={chats} activeId={chatId ?? null} savedAt={savedAt ?? 0} onOpen={(id) => onOpenChat?.(id)} onActiveGone={onReset} />
+        )}
         <ButtonDialog
           title={strings.ask_new_title}
           closeLabel={strings.ask_dialog_close}
@@ -829,11 +846,7 @@ export default function AssistantPanel({
               </Link>
             )}
           >
-            {() => (
-              <Typography variant="body2" color="text.secondary">
-                {surface === "wp-admin" ? strings.ask_notice : strings.ask_notice_website}
-              </Typography>
-            )}
+            {() => <PrivacyNote surface={surface} saved={Boolean(chats)} apps={apps} />}
           </ButtonDialog>
         </Box>
       </Box>
@@ -922,5 +935,43 @@ function ResizeHighlight({ handle }: { handle: Handle }) {
         borderLeftColor: blue("w"),
       }}
     />
+  );
+}
+
+/**
+ * What the privacy link says. In WordPress it depends on AI Agent: with it active the chats are
+ * saved in this site's database; without it they aren't, with a link to install or activate it.
+ */
+function PrivacyNote({ surface, saved, apps }: { surface: BotConfig["surface"]; saved: boolean; apps: HubApp[] }) {
+  if (surface === "website") {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        {strings.ask_notice_website}
+      </Typography>
+    );
+  }
+  if (saved) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        {strings.ask_notice_saved}
+      </Typography>
+    );
+  }
+  // Activate when it's installed, install when it isn't, else its page on WordPress.org.
+  const agent = apps.find((app) => app.slug === "ai-agent");
+  const link =
+    agent?.state === "inactive" && agent.activate_url
+      ? { href: agent.activate_url, label: strings.ask_notice_activate_agent, external: false }
+      : agent?.state === "missing" && agent.install_url
+        ? { href: agent.install_url, label: strings.ask_notice_install_agent, external: false }
+        : { href: AGENT_PLUGIN_URL, label: strings.ask_notice_get_agent, external: true };
+  return (
+    <Typography variant="body2" color="text.secondary">
+      {strings.ask_notice_unsaved}{" "}
+      <Link href={link.href} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener" : undefined} underline="always" sx={LINK_SX}>
+        {link.label}
+      </Link>
+      .
+    </Typography>
   );
 }
