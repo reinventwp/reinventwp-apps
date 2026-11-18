@@ -1,12 +1,12 @@
 {
   "name": "reinventwp-apps-dashboard",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "The shared \"Reinvent WP Apps\" admin page, copied into each WordPress.org-approved Reinvent WP plugin.",
   "private": true,
   "scripts": {
     "dev": "./scripts/dev-data.sh && webpack serve --mode development",
     "dev:data": "./scripts/dev-data.sh",
-    "build": "webpack --mode production && ./scripts/copy-bot-to-website.sh",
+    "build": "webpack --mode production && ./scripts/copy-bot-to-website.sh && ./scripts/sync-published.sh",
     "install-into": "./scripts/install-into.sh",
     "type": "tsc -p tsconfig.json --noEmit",
     "test": "vitest --run"

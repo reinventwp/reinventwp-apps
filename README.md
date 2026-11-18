@@ -19,7 +19,9 @@ The **Reinvent WP → Dashboard** page, shared by every WordPress.org-approved R
 |---|---|
 | `src/` | React + TypeScript + MUI page. `theme.ts` is the brand palette from the plugins' admin theme; `apps.ts` holds the logic (tested in `apps.test.ts`). |
 | `php/class-hub.php` | Hub class template: `{{CLASS}}`, `{{TEXT_DOMAIN}}`, `{{PACKAGE}}` are filled per plugin. |
-| `scripts/install-into.sh` | Type-checks, tests, builds, then writes the plugin's hub class, `public/hub/reinventwp-apps.js`, `public/hub/hub-3d.js` and `source/dashboard/`. |
+| `scripts/copy-into.sh` | Writes one plugin's hub class from the template and its `public/hub/` (`reinventwp-apps.js`, `bot.js`, `hub-3d.js`) from `build/`. It never builds. |
+| `scripts/sync-published.sh` | The last step of `npm run build`: asks the Company Dashboard (`localhost:3014/api/products`) which plugins are published and runs `copy-into.sh` for each one that already has a hub 2.x class. Dashboard not running: it copies nothing and says so; the build still succeeds. `SKIP_PLUGIN_SYNC=1` skips it. |
+| `scripts/install-into.sh` | The release step for one plugin: type-checks, tests and builds, runs `copy-into.sh`, then adds the readable source in `source/dashboard/`. The check and build run once per source state: `build/.verified` marks a build that passed, and it is reused while nothing in `src/`, `package.json`, `package-lock.json`, `tsconfig.json` or `webpack.config.js` is newer. `FORCE_BUILD=1` rebuilds anyway. It is also the first install into a newly approved plugin. |
 
 ## Develop with live reload
 
@@ -27,7 +29,7 @@ The **Reinvent WP → Dashboard** page, shared by every WordPress.org-approved R
 npm run dev   # http://localhost:3017, reloads on every change in src/
 ```
 
-It first saves the local site's real page data (`wp eval-file scripts/dev-data.php` on `../../wordpress`) to `dev/data.js`, so the cards match localhost:8000. Re-run `npm run dev:data` after changing the catalog. Buttons link to localhost:8000. In the Claude desktop app it's also the `reinventwp-apps-dev` preview. When the page looks right, run `install-into.sh` for each plugin below.
+It first saves the local site's real page data (`wp eval-file scripts/dev-data.php` on `../../wordpress`) to `dev/data.js`, so the cards match localhost:8000. Re-run `npm run dev:data` after changing the catalog. Buttons link to localhost:8000. In the Claude desktop app it's also the `reinventwp-apps-dev` preview. When the page looks right, run `npm run build`: it copies the result into every published plugin.
 
 ## Add it to a plugin (approved plugins only)
 
@@ -36,10 +38,10 @@ It first saves the local site's real page data (`wp eval-file scripts/dev-data.p
 ./scripts/install-into.sh ../natural-text-to-speech/plugin components/class-natuteto-hub.php Natuteto_Hub natural-text-to-speech NaturalTextToSpeech
 ```
 
-Installed in: Text to Speech, Media Cleanup, Retina Images, Rename & Replace Media and Watermark. Their release steps re-run it: `admin/scripts/prepare.sh` (`npm run prep`) in the first four, `scripts/deliver.sh` in Watermark, which has no build step. A new approved plugin must call it from its release step too. When two copies share the same `HUB_VERSION`, the plugin WordPress loads first serves the page, so same version must mean same code.
+Installed in: AI Agent, Text to Speech, Media Cleanup, Retina Images, Rename & Replace Media, Database Cleaner and Watermark. Their release steps re-run it: `admin/scripts/prepare.sh` (`npm run prep`) in the first six, `scripts/deliver.sh` in Watermark, which has no build step. A new approved plugin must call it from its release step too. Between releases, every `npm run build` here keeps the copies of all published plugins the same (`sync-published.sh`), so the release step usually only re-checks and adds the source. When two copies share the same `HUB_VERSION`, the plugin WordPress loads first serves the page, so same version must mean same code.
 
 Then in that plugin: git-ignore `public/hub/`, call the script from its release prep, check `public/hub/*` exists before delivering, keep `public/hub/*` and `source/*` out of phpcs, and disclose the catalog download under **External services** in `readme.txt` (copy Media Cleanup's item 3). Bump the plugin version; the hub version only changes when this page changes.
 
 ## Change the page
 
-Edit here, bump `HUB_VERSION` in `php/class-hub.php` and `version` in `package.json`, run `npm test && npm run type`, then re-run `install-into.sh` for every approved plugin and release them.
+Edit here, bump `HUB_VERSION` in `php/class-hub.php` and `version` in `package.json`, run `npm test && npm run type`, then `npm run build` (it copies the page into every published plugin; commit their hub classes in the `wordpress` repo) and release them.
