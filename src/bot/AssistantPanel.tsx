@@ -24,6 +24,7 @@ import {
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import hubApps from "../apps";
 import strings, { ASK_EXAMPLES } from "../strings";
+import { ApprovalCard, StepLines } from "./AgentSteps";
 import AnswerMarkdown from "./AnswerMarkdown";
 import AttachmentStrip, { FileChip } from "./AttachmentStrip";
 import FeedbackForm from "./FeedbackForm";
@@ -51,6 +52,10 @@ interface AssistantPanelProps {
   surface: BotConfig["surface"];
   messages: ChatMessage[];
   loading: boolean;
+  /** The site tool running now, shown while waiting. */
+  running: string | null;
+  /** The admin's answer on an Approve card. */
+  onApprove: (approved: boolean) => void;
   onSend: (text: string, images: PreparedImage[], file: PreparedFile | null) => void;
   onReset: () => void;
   onClose: () => void;
@@ -168,9 +173,10 @@ interface MessageProps {
   now: number;
   onView: (src: string) => void;
   onViewFile: (file: { name: string; summary: string; text: string }) => void;
+  onApprove: (approved: boolean) => void;
 }
 
-function Message({ message, apps, config, draft, onFeedbackSent, now, onView, onViewFile }: MessageProps) {
+function Message({ message, apps, config, draft, onFeedbackSent, now, onView, onViewFile, onApprove }: MessageProps) {
   if (message.role === "user") {
     return (
       <Stack alignItems="flex-end" spacing={0.25} sx={showActionsOnHover}>
@@ -228,16 +234,20 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
   return (
     <Stack spacing={1} sx={showActionsOnHover}>
       {Boolean(message.research?.searches.length) && message.research && <ResearchDetail research={message.research} apps={apps} />}
+      {Boolean(message.steps?.length) && <StepLines steps={message.steps ?? []} />}
       {message.failed ? (
         <Typography variant="body2" color="error.main" sx={{ whiteSpace: "pre-wrap", fontSize: "0.95rem" }}>
           {message.content}
         </Typography>
       ) : (
-        <AnswerMarkdown text={message.content} />
+        message.content && <AnswerMarkdown text={message.content} />
       )}
-      <Box sx={{ mt: "2px !important", ml: -0.5 }}>
-        <MessageActions text={message.content} at={message.at} now={now} align="left" />
-      </Box>
+      {message.approval && <ApprovalCard text={message.approval.text} onAnswer={onApprove} />}
+      {!message.working && (
+        <Box sx={{ mt: "2px !important", ml: -0.5 }}>
+          <MessageActions text={message.content} at={message.at} now={now} align="left" />
+        </Box>
+      )}
       {Boolean(message.sources?.length) && <Sources sources={message.sources ?? []} label={strings.ask_sources} wpAdmin={config.surface === "wp-admin"} />}
       {message.form === "feedback" && <FeedbackForm config={config} apps={apps} draft={draft} sent={Boolean(message.feedbackSent)} onSent={onFeedbackSent} />}
       {message.suggestions?.map((suggestion) => (
@@ -251,8 +261,9 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
  * The assistant, docked on the right like a side panel. The page beside it narrows on wide
  * screens; on phones it covers the page.
  */
-export default function AssistantPanel({ apps, surface, messages, loading, onSend, onReset, onClose, config, onFeedbackSent }: AssistantPanelProps) {
+export default function AssistantPanel({ apps, surface, messages, loading, running, onApprove, onSend, onReset, onClose, config, onFeedbackSent }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
+  const last = messages[messages.length - 1];
   const [confirmingReset, setConfirmingReset] = useState(false);
   const now = useNow();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -406,15 +417,24 @@ export default function AssistantPanel({ apps, surface, messages, loading, onSen
             now={now}
             onView={setViewing}
             onViewFile={setViewingFile}
+            onApprove={onApprove}
           />
         ))}
-        {loading && (
+        {loading && !last?.approval && (
+          // While tools run: the one running, or "Thinking…" while Services decides the next step.
           <ThinkingIndicator
-            steps={thinkingSteps({
-              image: Boolean(messages[messages.length - 1]?.images?.length),
-              file: Boolean(messages[messages.length - 1]?.file),
-              wpAdmin: surface === "wp-admin",
-            })}
+            key={running ?? (last?.working ? "working" : "asking")}
+            steps={
+              running
+                ? [`${running}…`]
+                : last?.working
+                  ? [strings.ask_thinking]
+                  : thinkingSteps({
+                      image: Boolean(last?.images?.length),
+                      file: Boolean(last?.file),
+                      wpAdmin: surface === "wp-admin",
+                    })
+            }
           />
         )}
         <div ref={endRef} />

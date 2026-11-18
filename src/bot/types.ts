@@ -23,3 +23,46 @@ export interface BotConfig {
    */
   feedback?: { url: string; email?: string; origin?: string };
 }
+
+/**
+ * window.reinventwpBotAgent: printed by AI Agent next to bot.js on wp-admin pages, so the
+ * assistant can run the site's Reinvent WP tools (WordPress abilities) for an admin.
+ */
+export interface BotAgentConfig {
+  /** AI Agent REST `GET bot/tools`. */
+  tools: string;
+  /** AI Agent REST `POST bot/run`. */
+  run: string;
+  /** wp_rest nonce, sent as X-WP-Nonce. */
+  nonce: string;
+}
+
+/** A site tool from `GET bot/tools`: one WordPress ability. */
+export interface AgentTool {
+  /** Ability name, e.g. "reinvent-media-cleanup/list-unused". */
+  name: string;
+  label: string;
+  description: string;
+  input_schema: Record<string, unknown> | null;
+  /** Read-only tools run at once; every other tool waits for the admin's Approve. */
+  readonly: boolean;
+  destructive: boolean;
+}
+
+/** A tool the model wants to run, from Services' `tool_calls`. */
+export interface AgentToolCall {
+  id: string;
+  /** The ability name. */
+  name: string;
+  input: Record<string, unknown> | null;
+}
+
+/** A tool call and how it went, sent back to Services as `agent.steps`. */
+export interface AgentStep {
+  id: string;
+  name: string;
+  input: Record<string, unknown> | null;
+  result: unknown;
+  error?: string;
+  declined?: true;
+}

@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import strings from "../strings";
 import type { HubApp } from "../types";
+import {
+  appName,
+  approvalText,
+  fetchAgentTools,
+  historyContent,
+  MAX_STEPS,
+  questionBody,
+  runAgentLoop,
+  runAgentTool,
+  stepLine,
+  type AssistantReply,
+  type StepView,
+} from "./agent";
 import { imageSrc, type PreparedImage } from "./images";
 import { fileSummary, type PreparedFile } from "./textFile";
-import type { BotConfig } from "./types";
+import type { AgentStep, AgentTool, BotAgentConfig, BotConfig } from "./types";
 
 /** A settings screen of a suggested app; its card links straight to it. */
 export interface AssistantSetting {
@@ -69,6 +83,12 @@ export interface ChatMessage {
   research?: AssistantResearch;
   /** An error shown in the chat; never sent back as history. */
   failed?: boolean;
+  /** What the assistant did on the site for this answer (wp-admin), one line per tool run. */
+  steps?: StepView[];
+  /** Still working through tool calls; the answer replaces `content` when it arrives. */
+  working?: boolean;
+  /** A change waiting for the admin's Approve or Decline. */
+  approval?: { id: string; text: string };
 }
 
 const STORAGE_KEY = "reinventwp_apps_assistant";
@@ -78,10 +98,40 @@ const HISTORY_TURNS = 6;
 function load(): ChatMessage[] {
   try {
     const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
+    return Array.isArray(saved) ? saved.map(settle) : [];
   } catch {
     return [];
   }
+}
+
+/** A reload stops tool runs: an unfinished answer keeps its steps and says it stopped. */
+function settle(message: ChatMessage): ChatMessage {
+  if (!message.working && !message.approval) return message;
+  const { working: _working, approval: _approval, ...rest } = message;
+  return { ...rest, content: rest.content || strings.ask_agent_interrupted };
+}
+
+/** The site's tools, fetched once per page; null when AI Agent doesn't offer any. */
+let agentTools: Promise<AgentTool[] | null> | null = null;
+
+function loadAgentTools(agent: BotAgentConfig): Promise<AgentTool[] | null> {
+  agentTools ??= fetchAgentTools(agent)
+    .then((tools) => (tools.length ? tools : null))
+    .catch(() => null);
+  return agentTools;
+}
+
+/** Puts `patch` on the answer being worked on (the last message), or starts it. */
+function patchWorking(current: ChatMessage[], patch: Partial<ChatMessage>): ChatMessage[] {
+  const last = current[current.length - 1];
+  if (last?.working) return [...current.slice(0, -1), { ...last, ...patch }];
+  return [...current, { role: "assistant", content: "", at: Date.now(), working: true, ...patch }];
+}
+
+/** The finished answer: replaces the one being worked on, or is added. */
+function finish(current: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  const last = current[current.length - 1];
+  return last?.working ? [...current.slice(0, -1), { ...message, steps: message.steps ?? last.steps }] : [...current, message];
 }
 
 /**
@@ -89,10 +139,15 @@ function load(): ChatMessage[] {
  * sends the last few turns, where it was asked (surface and page) and, in WordPress, this
  * site's Reinvent WP apps (slug, state, version) to Reinvent WP Services, which stores nothing.
  */
-export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[]) {
+export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[], agentConfig?: BotAgentConfig) {
   const { url, surface, page } = config;
   const [messages, setMessages] = useState<ChatMessage[]>(load);
   const [loading, setLoading] = useState(false);
+  /** The tool running now ("List unused media"), shown while waiting. */
+  const [running, setRunning] = useState<string | null>(null);
+  const approvalRef = useRef<((approved: boolean) => void) | null>(null);
+  // Tools never run on reinventwp.com.
+  const agent = surface === "wp-admin" ? agentConfig : undefined;
 
   useEffect(() => {
     try {
@@ -111,9 +166,9 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
       const history = messages
         .filter((message) => !message.failed)
         .slice(-HISTORY_TURNS)
-        .map(({ role, content, images: attached, file: sent }) => ({
+        .map(({ role, content, images: attached, file: sent, steps }) => ({
           role,
-          content: [content, attached?.length ? "(image)" : "", sent ? `(file: ${sent.name})` : ""].filter(Boolean).join(" "),
+          content: [historyContent(content, steps), attached?.length ? "(image)" : "", sent ? `(file: ${sent.name})` : ""].filter(Boolean).join(" "),
         }));
       setMessages((current) => [
         ...current,
@@ -126,33 +181,80 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         },
       ]);
       setLoading(true);
-      try {
+      const tools = agent ? await loadAgentTools(agent) : null;
+      /** One request to Services; with site tools, the steps so far go along. */
+      const ask = async (steps: AgentStep[]): Promise<AssistantReply> => {
         const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question,
-            history,
-            ...(images.length && { images: images.map(({ media_type, data }) => ({ media_type, data })) }),
-            ...(file && { files: [{ name: file.name, text: file.text }] }),
-            surface,
-            // reinventwp.com navigates without reloading, so read the page the question is asked on.
-            page: surface === "website" ? window.location.pathname : page,
-            ...(surface === "wp-admin" && { site: { apps: apps.map(({ slug, state, version }) => ({ slug, state, version })) } }),
-          }),
+          body: JSON.stringify(
+            questionBody({
+              question,
+              history,
+              images: images.map(({ media_type, data }) => ({ media_type, data })),
+              file,
+              surface,
+              // reinventwp.com navigates without reloading, so read the page the question is asked on.
+              page: surface === "website" ? window.location.pathname : page,
+              apps,
+              agent: tools && { tools, steps },
+            }),
+          ),
         });
         const body = await response.json().catch(() => null);
         if (!response.ok || !body?.data) throw new Error(body?.message || errorText);
-        setMessages((current) => [...current, { role: "assistant", content: body.data.answer, at: Date.now(), form: body.data.form === "feedback" ? "feedback" : undefined, suggestions: body.data.suggestions, sources: body.data.sources, research: body.data.research }]);
+        return body.data;
+      };
+      const views = (steps: AgentStep[]) => steps.map((step) => stepLine(step, tools?.find((tool) => tool.name === step.name)));
+      try {
+        let reply: AssistantReply | null;
+        let steps: StepView[] | undefined;
+        let stopped = "";
+        if (tools && agent) {
+          const outcome = await runAgentLoop({
+            tools,
+            ask,
+            run: (call, approved) => runAgentTool(agent, call, approved),
+            approve: (call, tool) =>
+              new Promise<boolean>((resolve) => {
+                approvalRef.current = resolve;
+                setMessages((current) => patchWorking(current, { approval: { id: call.id, text: approvalText(tool, call, appName(call.name, apps)) } }));
+              }),
+            onProgress: (progress) => {
+              setRunning(progress.running ? (tools.find((tool) => tool.name === progress.running?.name)?.label ?? progress.running.name) : null);
+              setMessages((current) => patchWorking(current, { content: progress.message, steps: views(progress.steps) }));
+            },
+          });
+          reply = outcome.reply;
+          steps = outcome.steps.length ? views(outcome.steps) : undefined;
+          if (outcome.stopped) stopped = [outcome.message, strings.ask_agent_stopped.replace("%d", String(MAX_STEPS))].filter(Boolean).join("\n\n");
+        } else {
+          reply = await ask([]);
+        }
+        const done: ChatMessage = reply
+          ? { role: "assistant", content: String(reply.answer ?? ""), at: Date.now(), form: reply.form === "feedback" ? "feedback" : undefined, suggestions: reply.suggestions as AssistantSuggestion[] | undefined, sources: reply.sources as AssistantSource[] | undefined, research: reply.research as AssistantResearch | undefined, steps }
+          : { role: "assistant", content: stopped, at: Date.now(), steps };
+        setMessages((current) => finish(current, done));
       } catch (error) {
         const content = error instanceof Error && error.message ? error.message : errorText;
-        setMessages((current) => [...current, { role: "assistant", content, at: Date.now(), failed: true }]);
+        setMessages((current) => finish(current, { role: "assistant", content, at: Date.now(), failed: true }));
       } finally {
+        approvalRef.current = null;
+        setRunning(null);
         setLoading(false);
       }
     },
-    [apps, errorText, loading, messages, page, surface, url],
+    [agent, apps, errorText, loading, messages, page, surface, url],
   );
+
+  /** The admin's answer on the Approve card. */
+  const answerApproval = useCallback((approved: boolean) => {
+    const resolve = approvalRef.current;
+    if (!resolve) return;
+    approvalRef.current = null;
+    setMessages((current) => current.map((message) => (message.approval ? { ...message, approval: undefined } : message)));
+    resolve(approved);
+  }, []);
 
   const reset = useCallback(() => setMessages([]), []);
 
@@ -161,5 +263,5 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
     setMessages((current) => current.map((message, at) => (at === index ? { ...message, feedbackSent: true } : message)));
   }, []);
 
-  return { messages, loading, send, reset, markFeedbackSent };
+  return { messages, loading, running, send, reset, markFeedbackSent, answerApproval };
 }

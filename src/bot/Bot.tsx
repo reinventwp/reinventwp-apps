@@ -4,7 +4,7 @@ import theme from "../theme";
 import AskBar from "./AskBar";
 import ChatLauncher from "./ChatLauncher";
 import AssistantPanel, { PANEL_WIDTH } from "./AssistantPanel";
-import type { BotConfig } from "./types";
+import type { BotAgentConfig, BotConfig } from "./types";
 import useApps from "./useApps";
 import useAssistant from "./useAssistant";
 import useAvailability from "./useAvailability";
@@ -16,7 +16,7 @@ import { useAnchor, useShift } from "./useShift";
  * The Reinvent WP assistant on any page: the "Describe a problem…" field at the bottom centre,
  * and the side panel it opens. Shown only when Reinvent WP Services says it's on.
  */
-export default function Bot({ config }: { config: BotConfig }) {
+export default function Bot({ config, agent }: { config: BotConfig; agent?: BotAgentConfig }) {
   const apps = useApps(config);
   const serviceOn = useAvailability(`${config.url}/status`);
   const pageAllows = usePageAllows();
@@ -25,7 +25,7 @@ export default function Bot({ config }: { config: BotConfig }) {
   const [asking, setAsking] = useStoredFlag(OPEN_KEY);
   const [minimized, setMinimized] = useStoredFlag(MINIMIZED_KEY);
   const open = available && asking;
-  const assistant = useAssistant(config, strings.ask_error, apps);
+  const assistant = useAssistant(config, strings.ask_error, apps, agent);
   const anchor = useAnchor(config.shift);
   useShift(config.shift, open, PANEL_WIDTH + 20);
 
@@ -56,6 +56,8 @@ export default function Bot({ config }: { config: BotConfig }) {
           surface={config.surface}
           messages={assistant.messages}
           loading={assistant.loading}
+          running={assistant.running}
+          onApprove={assistant.answerApproval}
           onSend={assistant.send}
           onReset={assistant.reset}
           onClose={() => setAsking(false)}

@@ -77,6 +77,18 @@ const strings = {
   go_to: "Go to %s",
   ask_nothing_new: "Only sections already read",
   ask_nothing_found: "Nothing found",
+  ask_agent_wants: "The assistant wants to:",
+  ask_agent_approve: "Approve",
+  ask_agent_decline: "Decline",
+  ask_agent_declined: "Declined: %s",
+  ask_agent_failed: "%s failed: %s",
+  ask_agent_move_trash: "Move %s to %s (you can restore them)",
+  ask_agent_restore: "Restore %s from %s",
+  ask_agent_stopped: "Stopped after %d steps.",
+  ask_agent_interrupted: "Stopped: the page was reloaded before this finished.",
+  ask_agent_unknown: "This tool isn't available on this site.",
+  ask_agent_error: "The tool couldn't run. Please try again.",
+  ask_agent_history: "Done on this site: %s.",
 };
 
 /** What the ask field types in turn, to show what the assistant helps with. The first is shown with reduced motion. */
