@@ -37,6 +37,39 @@ function fill(template: string, ...values: Array<string | number>): string {
   return template.replace(/%[sd]/g, () => String(values[at++] ?? ""));
 }
 
+/** All tool results sent with one request stay under this many characters; older ones are compacted first. */
+export const STEP_RESULTS_BUDGET = 20_000;
+
+const resultSize = (result: unknown) => (result === null || result === undefined ? 0 : JSON.stringify(result)?.length ?? 0);
+
+/**
+ * The steps as they're sent to Services, compacted so the context doesn't fill up with tool output (every request
+ * sends all steps so far):
+ * - a result that a newer call of the same tool replaced (a newer settings read, the next scan progress) becomes a
+ *   short note;
+ * - then, while the results are still over STEP_RESULTS_BUDGET, the oldest full results become a note with their start.
+ * The newest step always stays whole. Errors and declines stay as they are; the steps shown in the chat aren't changed.
+ */
+export function compactSteps(steps: AgentStep[]): AgentStep[] {
+  const out = steps.map((step) => ({ ...step }));
+  const newest = new Map<string, number>();
+  out.forEach((step, index) => newest.set(step.name, index));
+  out.forEach((step, index) => {
+    if (newest.get(step.name) !== index && resultSize(step.result) > 200) {
+      step.result = { compacted: "Replaced by a newer call of this tool below." };
+    }
+  });
+  let total = out.reduce((sum, step) => sum + resultSize(step.result), 0);
+  for (let index = 0; index < out.length - 1 && total > STEP_RESULTS_BUDGET; index += 1) {
+    const size = resultSize(out[index].result);
+    if (size <= 300) continue;
+    const text = JSON.stringify(out[index].result);
+    out[index].result = { compacted: "Left out to save space; call the tool again if you need it.", start: `${text.slice(0, 240)}…` };
+    total -= size - resultSize(out[index].result);
+  }
+  return out;
+}
+
 /** The tools AI Agent offers, with anything malformed left out. */
 export function parseTools(body: unknown): AgentTool[] {
   const list = isObject(body) && Array.isArray(body.tools) ? body.tools : [];

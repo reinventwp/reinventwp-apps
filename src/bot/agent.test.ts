@@ -3,6 +3,7 @@ import type { HubApp } from "../types";
 import {
   approvalText,
   callsThatFit,
+  compactSteps,
   fetchAgentTools,
   historyContent,
   inputSummary,
@@ -11,6 +12,7 @@ import {
   questionBody,
   runAgentLoop,
   runAgentTool,
+  STEP_RESULTS_BUDGET,
   stepLine,
   toolCalls,
   type AssistantReply,
@@ -234,5 +236,31 @@ describe("agent loop", () => {
   it("passes errors from Services up", async () => {
     const ask = vi.fn().mockRejectedValue(new Error("Too many questions"));
     await expect(runAgentLoop({ tools: TOOLS, ask, run: vi.fn(), approve: vi.fn(), onProgress: () => undefined })).rejects.toThrow("Too many questions");
+  });
+});
+
+describe("compactSteps", () => {
+  const big = (fill: string, size: number) => ({ settings: fill.repeat(size) });
+  const step = (id: string, name: string, result: unknown) => ({ id, name, input: null, result });
+
+  it("keeps only the newest result of a tool in full", () => {
+    const out = compactSteps([step("1", "natural-text-to-speech/get-settings", big("a", 500)), step("2", "natural-text-to-speech/get-settings", big("b", 500))]);
+    expect(out[0].result).toEqual({ compacted: "Replaced by a newer call of this tool below." });
+    expect(out[1].result).toEqual(big("b", 500));
+  });
+
+  it("compacts the oldest results when they're over the budget, never the newest", () => {
+    const steps = [step("1", "a/one", big("x", 15_000)), step("2", "a/two", big("y", 15_000)), step("3", "a/three", big("z", 15_000))];
+    const out = compactSteps(steps);
+    expect((out[0].result as { compacted?: string }).compacted).toMatch(/save space/);
+    expect(out[2].result).toEqual(big("z", 15_000));
+    expect(JSON.stringify(out.map((item) => item.result)).length).toBeLessThan(STEP_RESULTS_BUDGET + 1_000);
+    // The steps shown in the chat are left alone.
+    expect(steps[0].result).toEqual(big("x", 15_000));
+  });
+
+  it("leaves small results, errors and declines as they are", () => {
+    const steps = [{ id: "1", name: "a/one", input: null, result: null, error: "Failed" }, step("2", "a/one", { ok: true })];
+    expect(compactSteps(steps)).toEqual(steps);
   });
 });

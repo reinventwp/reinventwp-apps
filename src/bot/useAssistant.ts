@@ -4,6 +4,7 @@ import type { HubApp } from "../types";
 import {
   appName,
   approvalText,
+  compactSteps,
   fetchAgentTools,
   historyContent,
   MAX_STEPS,
@@ -259,10 +260,12 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         },
       ]);
       setLoading(true);
-      // The site's tools (AI Agent's abilities) and the open admin page's own tools (embed.ts registerPage).
+      // The open admin page's own tools (embed.ts registerPage) and the site's tools (AI Agent's abilities). A plugin
+      // registers the same tools both ways; on its own page the page tool wins, because it works on the page's live
+      // state and save (the server one would leave the page showing old values, and its Save would write them back).
       const siteTools = agent ? await loadAgentTools(agent) : null;
       const pageTools = surface === "wp-admin" ? embedStore.pageTools() : [];
-      const merged = [...(siteTools ?? []), ...pageTools.filter((tool) => !siteTools?.some((item) => item.name === tool.name))];
+      const merged = [...pageTools, ...(siteTools ?? []).filter((tool) => !pageTools.some((item) => item.name === tool.name))];
       const tools = merged.length ? merged : null;
       const pageTool = (name: string) => pageTools.find((tool) => tool.name === name);
       /** One request to Services; with site tools, the steps so far go along. */
@@ -280,7 +283,8 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
               // reinventwp.com navigates without reloading, so read the page the question is asked on.
               page: surface === "website" ? window.location.pathname : page,
               apps,
-              agent: tools && { tools, steps },
+              // Older results are compacted so a long run (big settings lists, repeated scans) stays small.
+              agent: tools && { tools, steps: compactSteps(steps) },
             }),
           ),
         });
