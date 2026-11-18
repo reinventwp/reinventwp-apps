@@ -11,6 +11,7 @@ import {
   Button,
   ButtonBase,
   Chip,
+  chipClasses,
   IconButton,
   InputBase,
   Link,
@@ -669,7 +670,8 @@ export default function AssistantPanel({
                     bgcolor: "rgba(255, 255, 255, 0.7)",
                     backdropFilter: "blur(6px)",
                     "&:hover, &:focus-visible": { bgcolor: "#FFFFFF", borderColor: "primary.main" },
-                    "& .MuiChip-label": { whiteSpace: "normal" },
+                    // chipClasses carries the bot's class prefix (rwpbot-MuiChip-label).
+                    [`& .${chipClasses.label}`]: { whiteSpace: "normal" },
                   }}
                 />
               ))}

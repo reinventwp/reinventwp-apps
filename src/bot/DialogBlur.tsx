@@ -33,8 +33,11 @@ export default function DialogBlur({ title, open, onClose, maxWidth = "xs", clos
       disableScrollLock
       hideBackdrop
       aria-label={title}
-      sx={{ zIndex: 99999, "& .MuiDialog-container": { alignItems: "flex-start" } }}
+      sx={{ zIndex: 99999 }}
       slotProps={{
+        // Near the top, like DialogBlur in the Text to Speech admin. Set on the container slot, not with a
+        // ".MuiDialog-container" selector: the bot's classes are prefixed (rwpbot-MuiDialog-container).
+        container: { sx: { alignItems: "flex-start" } },
         paper: {
           sx: {
             backdropFilter: "blur(20px)",
