@@ -49,6 +49,9 @@ export const PANEL_WIDTH = 400;
 /** Chat background: a soft off-white, so the white composer box and answer cards stand out (like Claude). */
 const CHAT_BG = "#F7F7F5";
 
+/** Header: a little darker than the chat, so the title bar reads as its own strip. */
+const HEADER_BG = "#EEEEEB";
+
 /** Space between the floating panel ("Over the page") and the window edges, in px. */
 const FLOAT_GAP = 12;
 
@@ -420,6 +423,7 @@ export default function AssistantPanel({
           zIndex: 1,
           px: 2,
           py: 1.25,
+          bgcolor: HEADER_BG,
           borderBottom: NEUTRAL_BORDER,
           // The chat fades in under the header, like it fades out above the composer.
           "&::after": {
