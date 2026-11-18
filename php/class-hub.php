@@ -58,6 +58,11 @@ class {{CLASS}} {
 	const REFRESH_ACTION = 'reinventwp_apps_refresh';
 
 	/**
+	 * admin-post action of the Deactivate button (hub 2.3.0+): deactivates an app and comes back here.
+	 */
+	const DEACTIVATE_ACTION = 'reinventwp_apps_deactivate';
+
+	/**
 	 * Whether this copy registered the menu (and so owns the dashboard).
 	 *
 	 * @var bool
@@ -77,6 +82,43 @@ class {{CLASS}} {
 		$GLOBALS['reinventwp_bot_plugins']['{{TEXT_DOMAIN}}'] = true;
 		add_action( 'admin_menu', array( __CLASS__, 'maybe_register' ), 5 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
+		// Every copy registers it (admin-post.php doesn't build the menu, so the owner isn't known there); the first one
+		// to run handles the request and exits.
+		add_action( 'admin_post_' . self::DEACTIVATE_ACTION, array( __CLASS__, 'deactivate' ) );
+	}
+
+	/**
+	 * The Deactivate button: deactivates one app of the catalog, then goes back to the dashboard, or to the
+	 * Plugins screen when no Reinvent WP app is left active (the dashboard goes with the last one).
+	 *
+	 * @return void
+	 */
+	public static function deactivate() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Checked right below, per app.
+		$slug = isset( $_GET['app'] ) ? sanitize_key( wp_unslash( $_GET['app'] ) ) : '';
+		check_admin_referer( self::DEACTIVATE_ACTION . '_' . $slug );
+		if ( ! function_exists( 'deactivate_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$file = '';
+		foreach ( self::catalog() as $app ) {
+			if ( $app['slug'] === $slug ) {
+				$file = $app['file'];
+			}
+		}
+		if ( '' === $file || ! is_plugin_active( $file ) || ! current_user_can( 'deactivate_plugin', $file ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to deactivate this plugin.', '{{TEXT_DOMAIN}}' ), '', array( 'response' => 403 ) );
+		}
+		deactivate_plugins( $file );
+
+		$still_active = false;
+		foreach ( self::catalog() as $app ) {
+			if ( $app['file'] !== $file && is_plugin_active( $app['file'] ) ) {
+				$still_active = true;
+			}
+		}
+		wp_safe_redirect( $still_active ? admin_url( 'admin.php?page=' . self::SLUG ) : admin_url( 'plugins.php?deactivate=true' ) );
+		exit;
 	}
 
 	/**
@@ -342,6 +384,23 @@ class {{CLASS}} {
 	}
 
 	/**
+	 * The Deactivate button's link (see deactivate()).
+	 *
+	 * @param string $slug App slug.
+	 * @return string
+	 */
+	private static function deactivate_url( $slug ) {
+		return add_query_arg(
+			array(
+				'action'   => self::DEACTIVATE_ACTION,
+				'app'      => $slug,
+				'_wpnonce' => wp_create_nonce( self::DEACTIVATE_ACTION . '_' . $slug ),
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+
+	/**
 	 * Cards for the React page: the visible apps with their state and links.
 	 *
 	 * @return array
@@ -363,18 +422,19 @@ class {{CLASS}} {
 			}
 			$is_active = $is_installed && is_plugin_active( $app['file'] );
 			$cards[]   = array(
-				'slug'         => $app['slug'],
-				'name'         => $app['name'],
-				'description'  => $app['description'],
-				'category'     => $app['category'],
-				'categories'   => isset( $app['categories'] ) && is_array( $app['categories'] ) ? array_values( $app['categories'] ) : array(),
-				'state'        => $is_active ? 'active' : ( $is_installed ? 'inactive' : 'missing' ),
-				'version'      => $is_installed ? (string) $installed[ $app['file'] ]['Version'] : '',
-				'open_url'     => $is_active && ! empty( $app['page'] ) ? admin_url( $app['page'] ) : '',
-				'activate_url' => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['file'] ) : '',
-				'coming_soon'  => $coming_soon,
-				'install_url'  => ! $is_installed && $can_install && ! $coming_soon ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
-				'learn_url'    => isset( $app['href'] ) ? (string) $app['href'] : '',
+				'slug'           => $app['slug'],
+				'name'           => $app['name'],
+				'description'    => $app['description'],
+				'category'       => $app['category'],
+				'categories'     => isset( $app['categories'] ) && is_array( $app['categories'] ) ? array_values( $app['categories'] ) : array(),
+				'state'          => $is_active ? 'active' : ( $is_installed ? 'inactive' : 'missing' ),
+				'version'        => $is_installed ? (string) $installed[ $app['file'] ]['Version'] : '',
+				'open_url'       => $is_active && ! empty( $app['page'] ) ? admin_url( $app['page'] ) : '',
+				'activate_url'   => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['file'] ) : '',
+				'deactivate_url' => $is_active && current_user_can( 'deactivate_plugin', $app['file'] ) ? self::deactivate_url( $app['slug'] ) : '',
+				'coming_soon'    => $coming_soon,
+				'install_url'    => ! $is_installed && $can_install && ! $coming_soon ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
+				'learn_url'      => isset( $app['href'] ) ? (string) $app['href'] : '',
 			);
 		}
 		return $cards;

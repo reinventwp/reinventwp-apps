@@ -15,6 +15,7 @@ const strings = {
   suite_cta: "See plans",
   open: "Open",
   activate: "Activate",
+  deactivate: "Deactivate",
   install: "Install",
   refresh_hint: "Get the latest list of apps now",
   catalog_hint: "See every Reinvent WP plugin on reinventwp.com",

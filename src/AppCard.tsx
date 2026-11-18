@@ -62,7 +62,7 @@ export default function AppCard({ app }: AppCardProps) {
         {app.description}
       </Typography>
 
-      {(action || app.coming_soon) && (
+      {(action || app.coming_soon || app.deactivate_url) && (
         <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
           {app.coming_soon && (
             <Button variant="outlined" disabled>
@@ -77,6 +77,12 @@ export default function AppCard({ app }: AppCardProps) {
               startIcon={action.install ? <DownloadRoundedIcon /> : undefined}
             >
               {action.label}
+            </Button>
+          )}
+          {/* Active apps: a quiet Deactivate next to Open; WordPress deactivates it and the page comes back here. */}
+          {app.deactivate_url && (
+            <Button size="small" color="inherit" href={app.deactivate_url} sx={{ color: "text.secondary", ml: "auto", "&:hover": { color: "text.primary" } }}>
+              {strings.deactivate}
             </Button>
           )}
         </Stack>

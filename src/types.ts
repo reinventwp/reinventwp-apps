@@ -16,6 +16,8 @@ export interface HubApp {
   open_url: string;
   /** Activation link for an installed app, when the user may activate plugins. */
   activate_url: string;
+  /** Deactivation link for an active app (hub 2.3.0+), when the user may deactivate it; it comes back to the dashboard. */
+  deactivate_url?: string;
   /** Not on WordPress.org yet: the card says "Coming soon" instead of Install. */
   coming_soon: boolean;
   /** WordPress.org install screen, when the user may install plugins. */
