@@ -33,6 +33,7 @@ const strings = {
   ask_settings_title: "Assistant settings",
   ask_dialog_close: "Close",
   ask_privacy: "privacy",
+  ask_drag: "Drag to move",
   ask_privacy_title: "Privacy",
   ask_panel_mode: "Chat panel",
   ask_panel_mode_options: {

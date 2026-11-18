@@ -19,6 +19,7 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import hubApps from "../apps";
@@ -39,6 +40,7 @@ import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
 import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
+import { HANDLE_CURSOR, HANDLES, useFloatingPanel, type Handle } from "./floating";
 import type { HubApp } from "../types";
 import type { BotConfig } from "./types";
 import type { AssistantSource, AssistantSuggestion, ChatMessage } from "./useAssistant";
@@ -360,6 +362,12 @@ export default function AssistantPanel({
   // The send button shows only when there is something to send, so an empty field stays one clean line.
   const canSend = Boolean(draft.trim() || attachments.length || file);
 
+  // Drag from the header (a docked panel starts floating), resize from 8 handles while floating.
+  const isPhone = useMediaQuery("(max-width: 599.95px)");
+  const adminTop = surface === "wp-admin" ? (window.innerWidth >= 783 ? 32 : 46) : 0;
+  const floating = useFloatingPanel({ floating: panelMode === "over" && !isPhone, top: adminTop, onFloat: () => onPanelModeChange("over") });
+  const placed = floating.geometry;
+
   const submit = (text: string) => {
     if ((!text.trim() && !attachments.length && !file) || loading) return;
     onSend(text, attachments, file);
@@ -380,12 +388,16 @@ export default function AssistantPanel({
   return (
     <Box
       component="aside"
+      ref={floating.panelRef}
       role="dialog"
       aria-label={strings.ask_title}
       onDragOver={(event: DragEvent) => event.preventDefault()}
       onDrop={onDrop}
+      style={placed ? { left: placed.x, top: placed.y, width: placed.width, height: placed.height, right: "auto", bottom: "auto" } : undefined}
       sx={{
         position: "fixed",
+        // Width and height include the border, so a dragged or resized panel fits the window exactly.
+        boxSizing: "border-box",
         top: surface === "wp-admin" ? 46 : 0,
         right: 0,
         bottom: 0,
@@ -418,6 +430,8 @@ export default function AssistantPanel({
         direction="row"
         alignItems="center"
         spacing={0.5}
+        onPointerDown={floating.onDragStart}
+        title={isPhone ? undefined : strings.ask_drag}
         sx={{
           position: "relative",
           zIndex: 1,
@@ -425,6 +439,8 @@ export default function AssistantPanel({
           py: 1.25,
           bgcolor: HEADER_BG,
           borderBottom: NEUTRAL_BORDER,
+          cursor: isPhone ? "default" : "grab",
+          touchAction: isPhone ? "auto" : "none",
           // The chat fades in under the header, like it fades out above the composer.
           "&::after": {
             content: '""',
@@ -755,8 +771,39 @@ export default function AssistantPanel({
         </Box>
       </Box>
 
+      {placed &&
+        HANDLES.map((handle) => <ResizeHandle key={handle} handle={handle} onPointerDown={floating.onResizeStart(handle)} />)}
+
       <ImageViewer src={viewing} onClose={() => setViewing(null)} />
       <TextViewer file={viewingFile} onClose={() => setViewingFile(null)} />
     </Box>
+  );
+}
+
+/** Size of the grab area along an edge, and of a corner square, in px. */
+const EDGE = 6;
+const CORNER = 14;
+
+/** Where each handle sits on the floating panel. */
+function handlePosition(handle: Handle) {
+  const vertical = handle.includes("n") ? { top: 0 } : handle.includes("s") ? { bottom: 0 } : { top: CORNER, bottom: CORNER };
+  const horizontal = handle.includes("w") ? { left: 0 } : handle.includes("e") ? { right: 0 } : { left: CORNER, right: CORNER };
+  const corner = handle.length === 2;
+  return {
+    ...vertical,
+    ...horizontal,
+    width: corner ? CORNER : handle === "e" || handle === "w" ? EDGE : undefined,
+    height: corner ? CORNER : handle === "n" || handle === "s" ? EDGE : undefined,
+  };
+}
+
+/** One of the 8 invisible grab areas that resize the floating panel. */
+function ResizeHandle({ handle, onPointerDown }: { handle: Handle; onPointerDown: (event: React.PointerEvent) => void }) {
+  return (
+    <Box
+      aria-hidden
+      onPointerDown={onPointerDown}
+      sx={{ position: "absolute", zIndex: 3, touchAction: "none", cursor: HANDLE_CURSOR[handle], ...handlePosition(handle) }}
+    />
   );
 }
