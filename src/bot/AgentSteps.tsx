@@ -35,7 +35,7 @@ export function ApprovalCard({ text, onAnswer }: { text: string; onAnswer: (appr
       <Typography variant="caption" color="text.secondary" component="p" sx={{ fontWeight: 600 }}>
         {strings.ask_agent_wants}
       </Typography>
-      <Typography variant="body2" sx={{ mt: 0.25, fontSize: "0.95rem" }}>
+      <Typography variant="body2" sx={{ mt: 0.25, fontSize: "0.95rem", whiteSpace: "pre-line" }}>
         {text}
       </Typography>
       <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>

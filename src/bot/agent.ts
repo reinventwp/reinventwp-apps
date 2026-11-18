@@ -156,6 +156,7 @@ const PAST: Record<string, string> = {
   create: "Created",
   add: "Added",
   update: "Updated",
+  change: "Changed",
   set: "Set",
   save: "Saved",
   rename: "Renamed",

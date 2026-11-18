@@ -17,7 +17,8 @@ import {
 import { chatsApi, chatsConfig } from "./chats";
 import { imageSrc, type PreparedImage } from "./images";
 import { fileSummary, type PreparedFile } from "./textFile";
-import type { AgentStep, AgentTool, BotAgentConfig, BotConfig } from "./types";
+import { embedStore } from "./embed";
+import type { AgentStep, AgentTool, AgentToolCall, BotAgentConfig, BotConfig, PageTool } from "./types";
 
 /** A settings screen of a suggested app; its card links straight to it. */
 export interface AssistantSetting {
@@ -149,6 +150,15 @@ function loadAgentTools(agent: BotAgentConfig): Promise<AgentTool[] | null> {
   return agentTools;
 }
 
+/** Runs a tool the open admin page gave the assistant; a failure becomes the error the model is told. */
+async function runPageTool(tool: PageTool, call: AgentToolCall): Promise<{ result: unknown; error?: string }> {
+  try {
+    return { result: (await tool.run(call.input)) ?? null };
+  } catch (error) {
+    return { result: null, error: error instanceof Error && error.message ? error.message : strings.ask_agent_error };
+  }
+}
+
 /** Puts `patch` on the answer being worked on (the last message), or starts it. */
 function patchWorking(current: ChatMessage[], patch: Partial<ChatMessage>): ChatMessage[] {
   const last = current[current.length - 1];
@@ -249,7 +259,12 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         },
       ]);
       setLoading(true);
-      const tools = agent ? await loadAgentTools(agent) : null;
+      // The site's tools (AI Agent's abilities) and the open admin page's own tools (embed.ts registerPage).
+      const siteTools = agent ? await loadAgentTools(agent) : null;
+      const pageTools = surface === "wp-admin" ? embedStore.pageTools() : [];
+      const merged = [...(siteTools ?? []), ...pageTools.filter((tool) => !siteTools?.some((item) => item.name === tool.name))];
+      const tools = merged.length ? merged : null;
+      const pageTool = (name: string) => pageTools.find((tool) => tool.name === name);
       /** One request to Services; with site tools, the steps so far go along. */
       const ask = async (steps: AgentStep[]): Promise<AssistantReply> => {
         const response = await fetch(url, {
@@ -278,15 +293,20 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         let reply: AssistantReply | null;
         let steps: StepView[] | undefined;
         let stopped = "";
-        if (tools && agent) {
+        if (tools) {
           const outcome = await runAgentLoop({
             tools,
             ask,
-            run: (call, approved) => runAgentTool(agent, call, approved),
+            run: async (call, approved) => {
+              const own = pageTool(call.name);
+              if (own) return runPageTool(own, call);
+              return agent ? runAgentTool(agent, call, approved) : { result: null, error: strings.ask_agent_unknown };
+            },
             approve: (call, tool) =>
               new Promise<boolean>((resolve) => {
                 approvalRef.current = resolve;
-                setMessages((current) => patchWorking(current, { approval: { id: call.id, text: approvalText(tool, call, appName(call.name, apps)) } }));
+                const text = pageTool(call.name)?.approval?.(call.input) || approvalText(tool, call, appName(call.name, apps));
+                setMessages((current) => patchWorking(current, { approval: { id: call.id, text } }));
               }),
             onProgress: (progress) => {
               setRunning(progress.running ? (tools.find((tool) => tool.name === progress.running?.name)?.label ?? progress.running.name) : null);

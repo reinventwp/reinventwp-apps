@@ -51,6 +51,24 @@ export interface AgentTool {
   destructive: boolean;
 }
 
+/**
+ * A tool an admin page gives the assistant while the page is open (embed.ts registerPage), for
+ * example Text to Speech's "change settings". It runs in the page, through the page's own state and
+ * save, so a plugin doesn't need one WordPress ability per setting.
+ */
+export interface PageTool extends AgentTool {
+  run: (input: Record<string, unknown> | null) => unknown;
+  /** What the Approve card says will happen ("Auto Embed: post, page → post"); else the label and input. */
+  approval?: (input: Record<string, unknown> | null) => string;
+}
+
+/** An admin page that works with the assistant: its tools, while it's open. */
+export interface BotPage {
+  /** The plugin's slug, e.g. "natural-text-to-speech". */
+  app: string;
+  tools: PageTool[];
+}
+
 /** A tool the model wants to run, from Services' `tool_calls`. */
 export interface AgentToolCall {
   id: string;

@@ -11,12 +11,14 @@
  *   window.reinventwpBotApi.load(messages)             // shows a conversation the host has
  *   window.reinventwpBotApi.onChange(fn)               // fn({ messages, busy, chatId, savedAt }) after every change
  *   window.reinventwpBotApi.openSettings()             // opens the assistant's settings (where it shows, panel, placement)
+ *   window.reinventwpBotApi.registerPage(page)         // a plugin's admin page gives the assistant tools while it's open
+ *                                                      // (e.g. read and change its settings); returns an unregister function
  *
  * bot.js may load before or after the host app, so it also fires "reinventwp-bot:ready" on window
  * once the API exists. After a host has mounted once, the floating ask bar stays hidden on that page.
  */
 
-import type { BotAgentConfig } from "./types";
+import type { BotAgentConfig, BotPage, PageTool } from "./types";
 
 type Listener = () => void;
 
@@ -37,6 +39,7 @@ export interface BotEmbedApi {
   load: (messages: unknown[]) => void;
   onChange: (listener: (change: BotEmbedChange) => void) => () => void;
   openSettings: () => void;
+  registerPage: (page: BotPage) => () => void;
 }
 
 declare global {
@@ -57,6 +60,8 @@ const newChatListeners = new Set<Listener>();
 const loadListeners = new Set<(messages: unknown[]) => void>();
 const changeListeners = new Set<(change: BotEmbedChange) => void>();
 const settingsListeners = new Set<Listener>();
+/** Admin pages open now that gave the assistant tools. */
+const pages = new Set<BotPage>();
 
 const setHost = (element: HTMLElement | null) => {
   host = element;
@@ -71,6 +76,10 @@ export const embedStore = {
   hosted: () => hosted,
   /** The agent config a host passed to mount(), if any. */
   agent: () => hostAgent,
+  /** The tools the open admin pages give the assistant (names already carry the plugin's slug). */
+  pageTools(): PageTool[] {
+    return Array.from(pages).flatMap((page) => page.tools);
+  },
   onOpenSettings(listener: Listener) {
     settingsListeners.add(listener);
     return () => {
@@ -134,6 +143,17 @@ export function installEmbedApi(): void {
     },
     openSettings() {
       settingsListeners.forEach((listener) => listener());
+    },
+    registerPage(page) {
+      // Only well-formed tools, named "<plugin>/<action>" like WordPress abilities, and only for this plugin.
+      const tools = Array.isArray(page?.tools)
+        ? page.tools.filter((tool) => typeof tool?.run === "function" && typeof tool.name === "string" && tool.name.startsWith(`${page.app}/`) && /^[a-z0-9-]+\/[a-z0-9-]+$/.test(tool.name))
+        : [];
+      const entry: BotPage = { app: String(page?.app ?? ""), tools };
+      pages.add(entry);
+      return () => {
+        pages.delete(entry);
+      };
     },
   };
   window.dispatchEvent(new Event(EMBED_READY_EVENT));
