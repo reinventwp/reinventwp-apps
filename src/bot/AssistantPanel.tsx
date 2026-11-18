@@ -1,6 +1,6 @@
 import KeyboardReturnRoundedIcon from "@mui/icons-material/KeyboardReturnRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
-import MinimizeRoundedIcon from "@mui/icons-material/MinimizeRounded";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import OpenWithRoundedIcon from "@mui/icons-material/OpenWithRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import hubApps from "../apps";
-import strings, { ASK_EXAMPLES } from "../strings";
+import strings, { ASK_EXAMPLES, SOUL_PHRASES } from "../strings";
 import { ApprovalCard, StepLines } from "./AgentSteps";
 import AnswerMarkdown from "./AnswerMarkdown";
 import AttachmentStrip, { FileChip } from "./AttachmentStrip";
@@ -38,6 +38,7 @@ import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
 import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
+import SoulIntro, { AGENT_BLUE, AGENT_SHIMMER } from "./SoulIntro";
 import { OptionCard, PanelModePreview, PlacementPreview } from "./SettingsPreview";
 import { HANDLE_CURSOR, HANDLES, useFloatingPanel, type Handle } from "./floating";
 import type { HubApp } from "../types";
@@ -83,9 +84,9 @@ interface AssistantPanelProps {
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
-function agentPageUrl(surface: BotConfig["surface"]): string {
+function agentPageUrl(surface: BotConfig["surface"], content = "panel_title"): string {
   if (surface === "website") return "/ai-agent";
-  return "https://reinventwp.com/ai-agent?utm_source=wp_admin&utm_medium=plugin_ui&utm_campaign=reinventwp_assistant&utm_content=panel_title";
+  return `https://reinventwp.com/ai-agent?utm_source=wp_admin&utm_medium=plugin_ui&utm_campaign=reinventwp_assistant&utm_content=${content}`;
 }
 
 /**
@@ -367,6 +368,8 @@ export default function AssistantPanel({
   const adminTop = surface === "wp-admin" ? (window.innerWidth >= 783 ? 32 : 46) : 0;
   const floating = useFloatingPanel({ floating: panelMode === "over" && !isPhone, top: adminTop, onFloat: () => onPanelModeChange("over") });
   const placed = floating.geometry;
+  /** An empty chat shows the welcome scene; the header then blends into it. */
+  const welcome = messages.length === 0;
   // The border sides of the handle under the pointer (or being dragged) light up, like Claude's app.
   const [hoveredHandle, setHoveredHandle] = useState<Handle | null>(null);
   const litHandle = floating.resizing ?? hoveredHandle;
@@ -436,45 +439,61 @@ export default function AssistantPanel({
         onPointerDown={floating.onDragStart}
         title={isPhone ? undefined : strings.ask_drag}
         sx={{
-          position: "relative",
           zIndex: 1,
           px: 2,
           py: 1.25,
-          bgcolor: HEADER_BG,
-          borderBottom: NEUTRAL_BORDER,
           transition: "background-color 0.15s ease",
-          // Darker on hover, so the header reads as something you can grab and drag.
-          ...(!isPhone && { "&:hover": { bgcolor: HEADER_BG_HOVER } }),
           cursor: isPhone ? "default" : "grab",
           touchAction: isPhone ? "auto" : "none",
-          // The chat fades in under the header, like it fades out above the composer.
-          "&::after": {
-            content: '""',
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: "100%",
-            height: 20,
-            background: `linear-gradient(to top, rgba(247, 247, 245, 0), ${CHAT_BG})`,
-            pointerEvents: "none",
-          },
+          ...(welcome
+            ? {
+                // On the welcome the header floats over the scene and blends into it: no strip, no line.
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                ...(!isPhone && { "&:hover": { bgcolor: "rgba(7, 21, 34, 0.04)" } }),
+              }
+            : {
+                // In a chat it is its own, darker strip.
+                position: "relative",
+                bgcolor: HEADER_BG,
+                borderBottom: NEUTRAL_BORDER,
+                // Darker on hover, so the header reads as something you can grab and drag.
+                ...(!isPhone && { "&:hover": { bgcolor: HEADER_BG_HOVER } }),
+                // The chat fades in under the header, like it fades out above the composer.
+                "&::after": {
+                  content: '""',
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: "100%",
+                  height: 20,
+                  background: `linear-gradient(to top, rgba(247, 247, 245, 0), ${CHAT_BG})`,
+                  pointerEvents: "none",
+                },
+              }),
         }}
       >
-        <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          <Link
-            href={agentPageUrl(surface)}
-            target={surface === "website" ? undefined : "_blank"}
-            rel={surface === "website" ? undefined : "noopener"}
-            underline="always"
-            color="inherit"
-            sx={{
-              textDecorationColor: "currentColor",
-              textUnderlineOffset: "0.18em",
-              "&:visited, &:hover, &:focus, &:active": { color: "inherit" },
-            }}
-          >
-            {strings.ask_title}
-          </Link>
+        {/* The welcome already says who this is, so the title shows only once a chat has started. */}
+        <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 700, flexGrow: 1, minHeight: "1.75em" }}>
+          {!welcome && (
+            <Link
+              href={agentPageUrl(surface)}
+              target={surface === "website" ? undefined : "_blank"}
+              rel={surface === "website" ? undefined : "noopener"}
+              underline="hover"
+              sx={{
+                // The AI Agent tone: a slowly moving blue, violet and cyan gradient, with a blue underline.
+                ...AGENT_SHIMMER,
+                textDecorationColor: AGENT_BLUE,
+                textUnderlineOffset: "0.18em",
+                "&:visited, &:hover, &:focus, &:active": { color: "transparent" },
+              }}
+            >
+              {strings.ask_title}
+            </Link>
+          )}
         </Typography>
         <ButtonDialog
           title={strings.ask_new_title}
@@ -568,29 +587,41 @@ export default function AssistantPanel({
         </ButtonDialog>
         <Tooltip title={strings.ask_close}>
           <IconButton aria-label={strings.ask_close} onClick={onClose} size="small">
-            <MinimizeRoundedIcon fontSize="small" />
+            <KeyboardArrowDownRoundedIcon />
           </IconButton>
         </Tooltip>
       </Stack>
 
-      <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 2 }} aria-live="polite">
+      <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden", px: 2, py: 2 }} aria-live="polite">
         {!messages.length && (
-          <Stack spacing={1.5}>
-            <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
-              {strings.ask_intro}
-            </Typography>
-            <Stack direction="row" useFlexGap flexWrap="wrap" gap={1}>
+          <SoulIntro
+            title={strings.ask_soul_title}
+            phrases={SOUL_PHRASES}
+            intro={strings.ask_intro}
+            linkLabel={strings.ask_soul_link}
+            href={agentPageUrl(surface, "empty_chat")}
+            external={surface !== "website"}
+            tryLabel={strings.ask_try}
+          >
+            <Stack direction="row" useFlexGap flexWrap="wrap" gap={1} justifyContent="center">
               {ASK_EXAMPLES.map((example) => (
                 <Chip
                   key={example}
                   label={example}
                   variant="outlined"
                   onClick={() => submit(example)}
-                  sx={{ height: "auto", py: 0.5, "& .MuiChip-label": { whiteSpace: "normal" } }}
+                  sx={{
+                    height: "auto",
+                    py: 0.5,
+                    bgcolor: "rgba(255, 255, 255, 0.7)",
+                    backdropFilter: "blur(6px)",
+                    "&:hover, &:focus-visible": { bgcolor: "#FFFFFF", borderColor: "primary.main" },
+                    "& .MuiChip-label": { whiteSpace: "normal" },
+                  }}
                 />
               ))}
             </Stack>
-          </Stack>
+          </SoulIntro>
         )}
         {messages.map((message, index) => (
           <Message
@@ -724,16 +755,16 @@ export default function AssistantPanel({
                     onClick={() => submit(draft)}
                     disabled={loading}
                     sx={{
+                      // A plain return arrow, like Claude's: no filled button, a soft tint on hover.
                       width: 34,
                       height: 34,
                       borderRadius: "10px",
-                      bgcolor: "primary.main",
-                      color: "#FFFFFF",
-                      "&:hover, &:focus, &:active": { bgcolor: "primary.dark", color: "#FFFFFF" },
-                      "&.Mui-disabled": { bgcolor: "rgba(7, 21, 34, 0.12)", color: "#FFFFFF" },
+                      color: "text.primary",
+                      "&:hover, &:focus-visible": { bgcolor: "rgba(7, 21, 34, 0.06)", color: "text.primary" },
+                      "&.Mui-disabled": { color: "rgba(7, 21, 34, 0.3)" },
                     }}
                   >
-                    <KeyboardReturnRoundedIcon fontSize="small" />
+                    <KeyboardReturnRoundedIcon sx={{ fontSize: 22 }} />
                   </IconButton>
                 </span>
               </Tooltip>

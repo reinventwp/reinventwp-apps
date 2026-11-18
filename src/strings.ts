@@ -21,7 +21,7 @@ const strings = {
   coming_soon: "Coming soon",
   ask: "Describe a problem with your site…",
   ask_title: "Reinvent WP AI Agent",
-  ask_intro: "Tell me what's wrong with your site, and I'll suggest the Reinvent WP app that fixes it.",
+  ask_intro: "Tell me what's wrong with your site, and we'll give you a solution.",
   ask_notice: "We send your message, attachments and Reinvent WP app list to answer you. Nothing is saved.",
   ask_notice_website: "We send your message and attachments to answer you. Nothing is saved.",
   ask_send: "Send",
@@ -33,6 +33,9 @@ const strings = {
   ask_settings_title: "Assistant settings",
   ask_dialog_close: "Close",
   ask_privacy: "privacy",
+  ask_soul_title: "From now on, your WordPress",
+  ask_soul_link: "See everything the AI Agent can do",
+  ask_try: "Try asking",
   ask_drag: "Drag to move",
   ask_privacy_title: "Privacy",
   ask_panel_mode: "Chat panel",
@@ -123,3 +126,6 @@ export const ASK_EXAMPLES = ["My media library is full of images I don't use", "
 export type HubStrings = typeof strings;
 
 export default strings;
+
+/** Endings typed after "From now on, your WordPress" on the assistant's welcome, one after another. */
+export const SOUL_PHRASES = ["has a soul.", "can think.", "can do admin tasks."];
