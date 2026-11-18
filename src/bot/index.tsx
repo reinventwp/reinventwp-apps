@@ -5,6 +5,7 @@ import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
 import { createRoot } from "react-dom/client";
 import Bot from "./Bot";
+import { installEmbedApi } from "./embed";
 import type { BotAgentConfig, BotConfig } from "./types";
 
 declare global {
@@ -30,4 +31,5 @@ if (config && !document.getElementById("reinventwp-bot")) {
       <Bot config={config} agent={agentConfig} />
     </CacheProvider>,
   );
+  installEmbedApi();
 }

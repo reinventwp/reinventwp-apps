@@ -1,4 +1,7 @@
 import { ThemeProvider } from "@mui/material/styles";
+import { useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { embedStore } from "./embed";
 import strings, { ASK_TYPING } from "../strings";
 import theme from "../theme";
 import AskBar from "./AskBar";
@@ -29,7 +32,41 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
   const open = available && asking;
   const assistant = useAssistant(config, strings.ask_error, apps, agent);
   const anchor = useAnchor(config.shift);
-  useShift(config.shift, open && panelMode === "beside", PANEL_WIDTH + 20);
+  // A host page (AI Agent's admin) can draw the chat inside its own layout; see embed.ts.
+  const host = useSyncExternalStore(embedStore.subscribe, embedStore.host, () => null);
+  const hosted = useSyncExternalStore(embedStore.subscribe, embedStore.hosted, () => false);
+  useShift(config.shift, !hosted && open && panelMode === "beside", PANEL_WIDTH + 20);
+  useEffect(() => embedStore.onNewChat(assistant.reset), [assistant.reset]);
+
+  if (hosted) {
+    // On a host page the floating ask bar and panel stay hidden; the chat lives in the host's layout.
+    return (
+      <ThemeProvider theme={theme}>
+        {host &&
+          createPortal(
+            <AssistantPanel
+              embedded
+              apps={apps}
+              config={config}
+              surface={config.surface}
+              messages={assistant.messages}
+              loading={assistant.loading}
+              running={assistant.running}
+              onApprove={assistant.answerApproval}
+              onSend={assistant.send}
+              onReset={assistant.reset}
+              onClose={() => undefined}
+              placement={placement}
+              onPlacementChange={setPlacement}
+              panelMode={panelMode}
+              onPanelModeChange={setPanelMode}
+              onFeedbackSent={assistant.markFeedbackSent}
+            />,
+            host,
+          )}
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>

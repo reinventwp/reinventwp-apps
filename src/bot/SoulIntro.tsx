@@ -288,7 +288,7 @@ export default function SoulIntro({ title, phrases, intro, linkLabel, href, exte
   const typed = useTypewriter(phrases, true);
   const ref = usePointerDrift();
   return (
-    <Box ref={ref} sx={{ position: "relative", flex: "1 0 auto", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+    <Box ref={ref} className="rwpbot-full-width" sx={{ position: "relative", flex: "1 0 auto", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
       {/* The scene: reaches the panel's edges (a Stack resets its children's margins, so the layer reaches out instead). */}
       <Box aria-hidden sx={{ position: "absolute", top: -BLEED, left: -BLEED, right: -BLEED, bottom: -BLEED, overflow: "hidden", pointerEvents: "none", maskImage: FADE_BOTTOM, WebkitMaskImage: FADE_BOTTOM }}>
         <Aurora />

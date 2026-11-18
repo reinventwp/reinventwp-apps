@@ -35,6 +35,8 @@ module.exports = (_env, argv) => {
       port: 3017,
       hot: true,
       static: { directory: path.resolve(__dirname, "dev") },
+      // The AI Agent admin dev server (localhost:3001) loads bot.js and data.js from here to draw its chat view.
+      headers: { "Access-Control-Allow-Origin": "*", "Cross-Origin-Resource-Policy": "cross-origin" },
     },
     optimization: {
       // Keep three.js inside hub-3d.js instead of a separate vendors file, so a plugin ships three known files.

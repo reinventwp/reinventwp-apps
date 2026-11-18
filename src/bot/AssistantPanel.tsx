@@ -58,6 +58,22 @@ const HEADER_BG_HOVER = "#E4E4E0";
 /** Space between the floating panel ("Over the page") and the window edges, in px. */
 const FLOAT_GAP = 12;
 
+/** Embedded in a host page: fills the host's box, no frame of its own. */
+const EMBEDDED_SX = {
+  position: "relative",
+  boxSizing: "border-box",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  bgcolor: CHAT_BG,
+  overflow: "hidden",
+  color: "text.primary",
+} as const;
+
+/** Embedded, the composer sits in a centred column at most 760px wide, in line with the conversation. */
+const COLUMN_PADDING = { xs: 2, sm: "max(16px, calc((100% - 760px) / 2))" } as const;
+
 interface AssistantPanelProps {
   apps: HubApp[];
   /** Where the bot runs; the feedback form reads its address and prefills from it. */
@@ -81,6 +97,11 @@ interface AssistantPanelProps {
   /** Whether the open panel sits beside the page (the page narrows) or over it. */
   panelMode: PanelMode;
   onPanelModeChange: (mode: PanelMode) => void;
+  /**
+   * Drawn inside a host page's layout (AI Agent's admin, see embed.ts) instead of floating: no
+   * header (the host has its own), no drag or resize, the conversation in a centred column.
+   */
+  embedded?: boolean;
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
@@ -301,6 +322,7 @@ export default function AssistantPanel({
   onPlacementChange,
   panelMode,
   onPanelModeChange,
+  embedded = false,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -366,7 +388,7 @@ export default function AssistantPanel({
   // Drag from the header (a docked panel starts floating), resize from 8 handles while floating.
   const isPhone = useMediaQuery("(max-width: 599.95px)");
   const adminTop = surface === "wp-admin" ? (window.innerWidth >= 783 ? 32 : 46) : 0;
-  const floating = useFloatingPanel({ floating: panelMode === "over" && !isPhone, top: adminTop, onFloat: () => onPanelModeChange("over") });
+  const floating = useFloatingPanel({ floating: !embedded && panelMode === "over" && !isPhone, top: adminTop, onFloat: () => onPanelModeChange("over") });
   const placed = floating.geometry;
   /** An empty chat shows the welcome scene; the header then blends into it. */
   const welcome = messages.length === 0;
@@ -388,7 +410,7 @@ export default function AssistantPanel({
       event.preventDefault();
       submit(draft);
     }
-    if (event.key === "Escape") onClose();
+    if (event.key === "Escape" && !embedded) onClose();
   };
 
   return (
@@ -400,7 +422,7 @@ export default function AssistantPanel({
       onDragOver={(event: DragEvent) => event.preventDefault()}
       onDrop={onDrop}
       style={placed ? { left: placed.x, top: placed.y, width: placed.width, height: placed.height, right: "auto", bottom: "auto" } : undefined}
-      sx={{
+      sx={embedded ? EMBEDDED_SX : {
         position: "fixed",
         // Width and height include the border, so a dragged or resized panel fits the window exactly.
         boxSizing: "border-box",
@@ -432,6 +454,7 @@ export default function AssistantPanel({
         color: "text.primary",
       }}
     >
+      {!embedded && (
       <Stack
         direction="row"
         alignItems="center"
@@ -591,8 +614,21 @@ export default function AssistantPanel({
           </IconButton>
         </Tooltip>
       </Stack>
+      )}
 
-      <Stack spacing={2} sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden", px: 2, py: 2 }} aria-live="polite">
+      <Stack
+        spacing={2}
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          px: 2,
+          py: 2,
+          // Embedded, the conversation sits in a centred column; the welcome scene still fills the width.
+          ...(embedded && { "& > :not(style)": { alignSelf: "center", width: "100%", maxWidth: 760 }, "& > .rwpbot-full-width": { maxWidth: "none" } }),
+        }}
+        aria-live="polite"
+      >
         {!messages.length && (
           <SoulIntro
             title={strings.ask_soul_title}
@@ -656,7 +692,7 @@ export default function AssistantPanel({
       <Box
         sx={{
           position: "relative",
-          px: 1.5,
+          px: embedded ? COLUMN_PADDING : 1.5,
           pb: 1.5,
           pt: 0.5,
           bgcolor: CHAT_BG,
