@@ -212,6 +212,56 @@ export function PlacementPreview({ placement }: { placement: Placement }) {
   );
 }
 
+/**
+ * Where it shows: three small wp-admin pages (a dark menu, page lines). The assistant's button sits
+ * on every one ("everywhere") or only on the Reinvent WP one, marked with an R ("reinventwp").
+ */
+export function DisplayPreview({ display }: { display: "everywhere" | "reinventwp" }) {
+  return (
+    <Frame height={64}>
+      <Box sx={{ position: "absolute", inset: 6, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
+        {[false, false, true].map((ours, index) => {
+          const shows = display === "everywhere" || ours;
+          return (
+            <Box key={index} sx={{ position: "relative", display: "flex", borderRadius: "4px", overflow: "hidden", bgcolor: "#F4F4F1", border: "1px solid rgba(7, 21, 34, 0.08)" }}>
+              <Box sx={{ width: 9, flex: "0 0 auto", bgcolor: "#2C3338", display: "grid", alignContent: "start", justifyItems: "center", gap: "3px", pt: "4px" }}>
+                {ours ? (
+                  <Box sx={{ fontSize: 6, fontWeight: 800, lineHeight: 1, color: "#fff" }}>R</Box>
+                ) : (
+                  <Box sx={{ width: 4, height: 4, borderRadius: "1px", bgcolor: "rgba(255,255,255,0.45)" }} />
+                )}
+                <Box sx={{ width: 4, height: 2, borderRadius: "1px", bgcolor: "rgba(255,255,255,0.3)" }} />
+                <Box sx={{ width: 4, height: 2, borderRadius: "1px", bgcolor: "rgba(255,255,255,0.3)" }} />
+              </Box>
+              <Box sx={{ flex: 1, display: "grid", alignContent: "start", gap: "3px", p: "4px" }}>
+                <Box sx={{ bgcolor: LINE, borderRadius: "2px", height: 4, width: "70%" }} />
+                <Box sx={{ bgcolor: LINE, borderRadius: "2px", height: 3 }} />
+                <Box sx={{ bgcolor: LINE, borderRadius: "2px", height: 3, width: "80%" }} />
+              </Box>
+              {shows && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    right: 4,
+                    bottom: 4,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    bgcolor: INK,
+                    "@keyframes displayPop": { "0%, 100%": { transform: "scale(1)" }, "50%": { transform: "scale(1.25)" } },
+                    animation: `displayPop 2.4s ease-in-out ${index * 0.3}s infinite`,
+                    ...still,
+                  }}
+                />
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    </Frame>
+  );
+}
+
 /** A selectable card: the preview on top, the name and a short line under it. */
 export function OptionCard({
   selected,
@@ -219,17 +269,22 @@ export function OptionCard({
   preview,
   label,
   help,
+  disabled = false,
 }: {
   selected: boolean;
   onSelect: () => void;
   preview: ReactNode;
   label: string;
   help?: string;
+  /** Can't be chosen now (the card says why under it). */
+  disabled?: boolean;
 }) {
   return (
     <ButtonBase
       role="radio"
       aria-checked={selected}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={onSelect}
       sx={{
         display: "block",
@@ -242,6 +297,7 @@ export function OptionCard({
         transition: "border-color 0.15s ease, background-color 0.15s ease",
         "&:hover": { borderColor: selected ? INK : "rgba(7, 21, 34, 0.25)" },
         "&.Mui-focusVisible": { outline: `2px solid ${INK}`, outlineOffset: 2 },
+        "&.Mui-disabled": { opacity: 0.55 },
       }}
     >
       {preview}

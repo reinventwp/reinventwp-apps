@@ -10,6 +10,7 @@
  *   window.reinventwpBotApi.openChat(id)               // opens a chat saved in WordPress (AI Agent)
  *   window.reinventwpBotApi.load(messages)             // shows a conversation the host has
  *   window.reinventwpBotApi.onChange(fn)               // fn({ messages, busy, chatId, savedAt }) after every change
+ *   window.reinventwpBotApi.openSettings()             // opens the assistant's settings (where it shows, panel, placement)
  *
  * bot.js may load before or after the host app, so it also fires "reinventwp-bot:ready" on window
  * once the API exists. After a host has mounted once, the floating ask bar stays hidden on that page.
@@ -35,6 +36,7 @@ export interface BotEmbedApi {
   openChat: (id: number) => void;
   load: (messages: unknown[]) => void;
   onChange: (listener: (change: BotEmbedChange) => void) => () => void;
+  openSettings: () => void;
 }
 
 declare global {
@@ -54,6 +56,7 @@ const hostListeners = new Set<Listener>();
 const newChatListeners = new Set<Listener>();
 const loadListeners = new Set<(messages: unknown[]) => void>();
 const changeListeners = new Set<(change: BotEmbedChange) => void>();
+const settingsListeners = new Set<Listener>();
 
 const setHost = (element: HTMLElement | null) => {
   host = element;
@@ -68,6 +71,12 @@ export const embedStore = {
   hosted: () => hosted,
   /** The agent config a host passed to mount(), if any. */
   agent: () => hostAgent,
+  onOpenSettings(listener: Listener) {
+    settingsListeners.add(listener);
+    return () => {
+      settingsListeners.delete(listener);
+    };
+  },
   onOpenChat(listener: (id: number) => void) {
     openChatListeners.add(listener);
     return () => {
@@ -122,6 +131,9 @@ export function installEmbedApi(): void {
       return () => {
         changeListeners.delete(listener);
       };
+    },
+    openSettings() {
+      settingsListeners.forEach((listener) => listener());
     },
   };
   window.dispatchEvent(new Event(EMBED_READY_EVENT));

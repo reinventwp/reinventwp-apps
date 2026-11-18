@@ -2,7 +2,6 @@ import KeyboardReturnRoundedIcon from "@mui/icons-material/KeyboardReturnRounded
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import OpenWithRoundedIcon from "@mui/icons-material/OpenWithRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
@@ -37,12 +36,12 @@ import { fileSummary, isTextFile, prepareTextFile, TEXT_EXTENSIONS, type Prepare
 import TextViewer from "./TextViewer";
 import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
-import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
+import type { PanelMode, Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
 import ChatHistory from "./ChatHistory";
 import type { ChatsConfig } from "./chats";
 import SoulIntro, { AGENT_BLUE, AGENT_SHIMMER } from "./SoulIntro";
-import { OptionCard, PanelModePreview, PlacementPreview } from "./SettingsPreview";
+import { agentLink } from "./agentLink";
 import { HANDLE_CURSOR, HANDLES, useFloatingPanel, type Handle } from "./floating";
 import type { HubApp } from "../types";
 import type { BotConfig } from "./types";
@@ -62,7 +61,6 @@ const HEADER_BG_HOVER = "#E4E4E0";
 const FLOAT_GAP = 12;
 
 /** AI Agent on WordPress.org: where to get it when this site can't install it from here. */
-const AGENT_PLUGIN_URL = "https://wordpress.org/plugins/ai-agent/";
 
 /** Embedded in a host page: fills the host's box, no frame of its own. */
 const EMBEDDED_SX = {
@@ -113,6 +111,8 @@ interface AssistantPanelProps {
   chatId?: number | null;
   savedAt?: number;
   onOpenChat?: (id: number) => void;
+  /** Opens the assistant's settings (SettingsDialog, drawn by Bot.tsx); the header gets a gear. */
+  onOpenSettings?: () => void;
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
@@ -338,6 +338,7 @@ export default function AssistantPanel({
   chatId = null,
   savedAt = 0,
   onOpenChat,
+  onOpenSettings,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -571,61 +572,13 @@ export default function AssistantPanel({
             </>
           )}
         </ButtonDialog>
-        <ButtonDialog
-          title={strings.ask_settings_title}
-          maxWidth="sm"
-          closeLabel={strings.ask_dialog_close}
-          button={(open) => (
-            <Tooltip title={strings.ask_settings_title}>
-              <IconButton aria-label={strings.ask_settings_title} onClick={open} size="small">
-                <SettingsRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        >
-          {() => (
-            <>
-              <Typography variant="subtitle2" component="p" sx={{ mb: 1 }}>
-                {strings.ask_panel_mode}
-              </Typography>
-              <Box role="radiogroup" aria-label={strings.ask_panel_mode} sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-                {PANEL_MODES.map((option) => (
-                  <OptionCard
-                    key={option}
-                    selected={panelMode === option}
-                    onSelect={() => onPanelModeChange(option)}
-                    preview={<PanelModePreview mode={option} />}
-                    label={strings.ask_panel_mode_options[option].label}
-                    help={strings.ask_panel_mode_options[option].help}
-                  />
-                ))}
-              </Box>
-              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1.25, mb: 2.5, px: 1.25, py: 1, borderRadius: "10px", bgcolor: "rgba(2, 136, 209, 0.07)" }}>
-                <OpenWithRoundedIcon fontSize="small" sx={{ color: "info.dark", mt: "1px" }} />
-                <Typography variant="caption" sx={{ color: "info.dark", lineHeight: 1.5 }}>
-                  {strings.ask_drag_tip}
-                </Typography>
-              </Stack>
-              <Typography variant="subtitle2" component="p" sx={{ mb: 1 }}>
-                {strings.ask_placement}
-              </Typography>
-              <Box role="radiogroup" aria-label={strings.ask_placement} sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" } }}>
-                {PLACEMENTS.map((option) => (
-                  <OptionCard
-                    key={option}
-                    selected={placement === option}
-                    onSelect={() => onPlacementChange(option)}
-                    preview={<PlacementPreview placement={option} />}
-                    label={strings.ask_placement_options[option]}
-                  />
-                ))}
-              </Box>
-              <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5 }}>
-                {strings.ask_settings_saved}
-              </Typography>
-            </>
-          )}
-        </ButtonDialog>
+        {onOpenSettings && (
+          <Tooltip title={strings.ask_settings_title}>
+            <IconButton aria-label={strings.ask_settings_title} onClick={onOpenSettings} size="small">
+              <SettingsRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title={strings.ask_close}>
           <IconButton aria-label={strings.ask_close} onClick={onClose} size="small">
             <KeyboardArrowDownRoundedIcon />
@@ -960,13 +913,7 @@ function PrivacyNote({ surface, saved, apps }: { surface: BotConfig["surface"]; 
     );
   }
   // Activate when it's installed, install when it isn't, else its page on WordPress.org.
-  const agent = apps.find((app) => app.slug === "ai-agent");
-  const link =
-    agent?.state === "inactive" && agent.activate_url
-      ? { href: agent.activate_url, label: strings.ask_notice_activate_agent, external: false }
-      : agent?.state === "missing" && agent.install_url
-        ? { href: agent.install_url, label: strings.ask_notice_install_agent, external: false }
-        : { href: AGENT_PLUGIN_URL, label: strings.ask_notice_get_agent, external: true };
+  const link = agentLink(apps);
   return (
     <Typography variant="body2" color="text.secondary">
       {strings.ask_notice_unsaved}{" "}

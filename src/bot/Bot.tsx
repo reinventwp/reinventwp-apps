@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@mui/material/styles";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { embedStore } from "./embed";
 import type { ChatMessage } from "./useAssistant";
@@ -8,6 +8,8 @@ import theme from "../theme";
 import AskBar from "./AskBar";
 import ChatLauncher from "./ChatLauncher";
 import AssistantPanel, { PANEL_WIDTH } from "./AssistantPanel";
+import SettingsDialog from "./SettingsDialog";
+import useDisplay from "./useDisplay";
 import type { BotAgentConfig, BotConfig } from "./types";
 import useApps from "./useApps";
 import useAssistant from "./useAssistant";
@@ -42,6 +44,23 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
   useEffect(() => embedStore.onNewChat(assistant.reset), [assistant.reset]);
   useEffect(() => embedStore.onLoad((saved) => assistant.loadSaved(saved as ChatMessage[])), [assistant.loadSaved]);
   useEffect(() => embedStore.onOpenChat((id) => void assistant.openChat(id)), [assistant.openChat]);
+  // The settings dialog lives here, not in the panel, so a host page can open it too (embed.ts openSettings).
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const display = useDisplay();
+  useEffect(() => embedStore.onOpenSettings(() => setSettingsOpen(true)), []);
+  const settings = (
+    <SettingsDialog
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      surface={config.surface}
+      apps={apps}
+      display={display}
+      panelMode={panelMode}
+      onPanelModeChange={setPanelMode}
+      placement={placement}
+      onPlacementChange={setPlacement}
+    />
+  );
   // Tell a host page about every change, so it can save the chat (screenshots full size and file texts stay in memory).
   useEffect(() => {
     if (!hosted) return;
@@ -57,6 +76,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
     // On a host page the floating ask bar and panel stay hidden; the chat lives in the host's layout.
     return (
       <ThemeProvider theme={theme}>
+        {settings}
         {host &&
           createPortal(
             <AssistantPanel
@@ -89,6 +109,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
 
   return (
     <ThemeProvider theme={theme}>
+      {settings}
       {available && !asking && placement === "bar" && (
         <AskBar
           placeholder={strings.ask}
@@ -129,6 +150,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
           chatId={assistant.chatId}
           savedAt={assistant.savedAt}
           onOpenChat={(id) => void assistant.openChat(id)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
     </ThemeProvider>

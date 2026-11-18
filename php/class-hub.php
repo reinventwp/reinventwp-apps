@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.2.0';
+	const HUB_VERSION = '2.3.0';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -418,20 +418,27 @@ class {{CLASS}} {
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only reads which admin page is open.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-		if ( '' === $page ) {
-			return '';
-		}
-		$plugins = isset( $GLOBALS['reinventwp_bot_plugins'] ) ? (array) $GLOBALS['reinventwp_bot_plugins'] : array();
-		foreach ( self::catalog() as $app ) {
-			if ( empty( $plugins[ $app['slug'] ] ) || empty( $app['page'] ) ) {
-				continue;
+		if ( '' !== $page ) {
+			$plugins = isset( $GLOBALS['reinventwp_bot_plugins'] ) ? (array) $GLOBALS['reinventwp_bot_plugins'] : array();
+			foreach ( self::catalog() as $app ) {
+				if ( empty( $plugins[ $app['slug'] ] ) || empty( $app['page'] ) ) {
+					continue;
+				}
+				parse_str( (string) wp_parse_url( $app['page'], PHP_URL_QUERY ), $args );
+				if ( isset( $args['page'] ) && $args['page'] === $page ) {
+					return $app['slug'];
+				}
 			}
-			parse_str( (string) wp_parse_url( $app['page'], PHP_URL_QUERY ), $args );
-			if ( isset( $args['page'] ) && $args['page'] === $page ) {
-				return $app['slug'];
-			}
 		}
-		return '';
+		/**
+		 * Any other wp-admin page: '' keeps the assistant away. AI Agent returns its slug here to show
+		 * the assistant on every wp-admin page (its "where it shows" setting, on by default).
+		 *
+		 * @param string $page The page id the assistant gets ('' = don't show it here).
+		 * @param string $hook The admin page hook.
+		 */
+		$other = apply_filters( 'reinventwp_bot_everywhere', '', $hook );
+		return is_string( $other ) ? sanitize_key( $other ) : '';
 	}
 
 	/**
