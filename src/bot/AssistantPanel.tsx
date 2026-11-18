@@ -2,6 +2,7 @@ import KeyboardReturnRoundedIcon from "@mui/icons-material/KeyboardReturnRounded
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import MinimizeRoundedIcon from "@mui/icons-material/MinimizeRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import OpenWithRoundedIcon from "@mui/icons-material/OpenWithRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
@@ -10,12 +11,9 @@ import {
   Button,
   ButtonBase,
   Chip,
-  FormControlLabel,
   IconButton,
   InputBase,
   Link,
-  Radio,
-  RadioGroup,
   Stack,
   Tooltip,
   Typography,
@@ -40,6 +38,7 @@ import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import { NEUTRAL_BORDER } from "../theme";
 import { PANEL_MODES, PLACEMENTS, type PanelMode, type Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
+import { OptionCard, PanelModePreview, PlacementPreview } from "./SettingsPreview";
 import { HANDLE_CURSOR, HANDLES, useFloatingPanel, type Handle } from "./floating";
 import type { HubApp } from "../types";
 import type { BotConfig } from "./types";
@@ -53,6 +52,7 @@ const CHAT_BG = "#F7F7F5";
 
 /** Header: a little darker than the chat, so the title bar reads as its own strip. */
 const HEADER_BG = "#EEEEEB";
+const HEADER_BG_HOVER = "#E4E4E0";
 
 /** Space between the floating panel ("Over the page") and the window edges, in px. */
 const FLOAT_GAP = 12;
@@ -367,6 +367,9 @@ export default function AssistantPanel({
   const adminTop = surface === "wp-admin" ? (window.innerWidth >= 783 ? 32 : 46) : 0;
   const floating = useFloatingPanel({ floating: panelMode === "over" && !isPhone, top: adminTop, onFloat: () => onPanelModeChange("over") });
   const placed = floating.geometry;
+  // The border sides of the handle under the pointer (or being dragged) light up, like Claude's app.
+  const [hoveredHandle, setHoveredHandle] = useState<Handle | null>(null);
+  const litHandle = floating.resizing ?? hoveredHandle;
 
   const submit = (text: string) => {
     if ((!text.trim() && !attachments.length && !file) || loading) return;
@@ -439,6 +442,9 @@ export default function AssistantPanel({
           py: 1.25,
           bgcolor: HEADER_BG,
           borderBottom: NEUTRAL_BORDER,
+          transition: "background-color 0.15s ease",
+          // Darker on hover, so the header reads as something you can grab and drag.
+          ...(!isPhone && { "&:hover": { bgcolor: HEADER_BG_HOVER } }),
           cursor: isPhone ? "default" : "grab",
           touchAction: isPhone ? "auto" : "none",
           // The chat fades in under the header, like it fades out above the composer.
@@ -507,6 +513,7 @@ export default function AssistantPanel({
         </ButtonDialog>
         <ButtonDialog
           title={strings.ask_settings_title}
+          maxWidth="sm"
           closeLabel={strings.ask_dialog_close}
           button={(open) => (
             <Tooltip title={strings.ask_settings_title}>
@@ -518,48 +525,41 @@ export default function AssistantPanel({
         >
           {() => (
             <>
-              <Typography variant="subtitle2" component="p">
+              <Typography variant="subtitle2" component="p" sx={{ mb: 1 }}>
                 {strings.ask_panel_mode}
               </Typography>
-              <RadioGroup
-                value={panelMode}
-                onChange={(event) => onPanelModeChange(event.target.value as PanelMode)}
-                aria-label={strings.ask_panel_mode}
-                sx={{ mb: 2 }}
-              >
+              <Box role="radiogroup" aria-label={strings.ask_panel_mode} sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
                 {PANEL_MODES.map((option) => (
-                  <FormControlLabel
+                  <OptionCard
                     key={option}
-                    value={option}
-                    control={<Radio size="small" />}
-                    label={
-                      <Box sx={{ py: 0.5 }}>
-                        <Typography variant="body2">{strings.ask_panel_mode_options[option].label}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {strings.ask_panel_mode_options[option].help}
-                        </Typography>
-                      </Box>
-                    }
+                    selected={panelMode === option}
+                    onSelect={() => onPanelModeChange(option)}
+                    preview={<PanelModePreview mode={option} />}
+                    label={strings.ask_panel_mode_options[option].label}
+                    help={strings.ask_panel_mode_options[option].help}
                   />
                 ))}
-              </RadioGroup>
-              <Typography variant="subtitle2" component="p">
+              </Box>
+              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1.25, mb: 2.5, px: 1.25, py: 1, borderRadius: "10px", bgcolor: "rgba(2, 136, 209, 0.07)" }}>
+                <OpenWithRoundedIcon fontSize="small" sx={{ color: "info.dark", mt: "1px" }} />
+                <Typography variant="caption" sx={{ color: "info.dark", lineHeight: 1.5 }}>
+                  {strings.ask_drag_tip}
+                </Typography>
+              </Stack>
+              <Typography variant="subtitle2" component="p" sx={{ mb: 1 }}>
                 {strings.ask_placement}
               </Typography>
-              <RadioGroup
-                value={placement}
-                onChange={(event) => onPlacementChange(event.target.value as Placement)}
-                aria-label={strings.ask_placement}
-              >
+              <Box role="radiogroup" aria-label={strings.ask_placement} sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" } }}>
                 {PLACEMENTS.map((option) => (
-                  <FormControlLabel
+                  <OptionCard
                     key={option}
-                    value={option}
-                    control={<Radio size="small" />}
-                    label={<Typography variant="body2">{strings.ask_placement_options[option]}</Typography>}
+                    selected={placement === option}
+                    onSelect={() => onPlacementChange(option)}
+                    preview={<PlacementPreview placement={option} />}
+                    label={strings.ask_placement_options[option]}
                   />
                 ))}
-              </RadioGroup>
+              </Box>
               <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5 }}>
                 {strings.ask_settings_saved}
               </Typography>
@@ -771,8 +771,17 @@ export default function AssistantPanel({
         </Box>
       </Box>
 
+      {placed && litHandle && <ResizeHighlight handle={litHandle} />}
       {placed &&
-        HANDLES.map((handle) => <ResizeHandle key={handle} handle={handle} onPointerDown={floating.onResizeStart(handle)} />)}
+        HANDLES.map((handle) => (
+          <ResizeHandle
+            key={handle}
+            handle={handle}
+            onPointerDown={floating.onResizeStart(handle)}
+            onPointerEnter={() => setHoveredHandle(handle)}
+            onPointerLeave={() => setHoveredHandle((current) => (current === handle ? null : current))}
+          />
+        ))}
 
       <ImageViewer src={viewing} onClose={() => setViewing(null)} />
       <TextViewer file={viewingFile} onClose={() => setViewingFile(null)} />
@@ -798,12 +807,53 @@ function handlePosition(handle: Handle) {
 }
 
 /** One of the 8 invisible grab areas that resize the floating panel. */
-function ResizeHandle({ handle, onPointerDown }: { handle: Handle; onPointerDown: (event: React.PointerEvent) => void }) {
+function ResizeHandle({
+  handle,
+  onPointerDown,
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  handle: Handle;
+  onPointerDown: (event: React.PointerEvent) => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+}) {
   return (
     <Box
       aria-hidden
       onPointerDown={onPointerDown}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       sx={{ position: "absolute", zIndex: 3, touchAction: "none", cursor: HANDLE_CURSOR[handle], ...handlePosition(handle) }}
+    />
+  );
+}
+
+/** Blue used to light up the border sides being resized. */
+const RESIZE_BLUE = "#2F80ED";
+
+/**
+ * Lights up the border sides a handle resizes: one side for an edge, the two sides that meet for a
+ * corner. It is a rounded border laid over the panel's own, so the blue follows the corner curves.
+ */
+function ResizeHighlight({ handle }: { handle: Handle }) {
+  const blue = (side: "n" | "e" | "s" | "w") => (handle.includes(side) ? RESIZE_BLUE : "transparent");
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 2,
+        pointerEvents: "none",
+        // Inside the panel's 1px border, so one less than its 16px radius.
+        borderRadius: "15px",
+        border: "2px solid transparent",
+        borderTopColor: blue("n"),
+        borderRightColor: blue("e"),
+        borderBottomColor: blue("s"),
+        borderLeftColor: blue("w"),
+      }}
     />
   );
 }

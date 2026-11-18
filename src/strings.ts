@@ -38,10 +38,11 @@ const strings = {
   ask_panel_mode: "Chat panel",
   ask_panel_mode_options: {
     beside: { label: "Beside the page", help: "The page gets narrower to make room." },
-    over: { label: "Over the page", help: "The page keeps its full width; the panel covers its right side." },
+    over: { label: "Over the page", help: "Floats on top. Move it and resize it anywhere." },
   },
   ask_placement: "When minimized",
-  ask_placement_options: { bar: "Ask bar at the bottom", right: "Button in the bottom-right corner", left: "Button in the bottom-left corner" },
+  ask_placement_options: { bar: "Bar at the bottom", right: "Button, bottom right", left: "Button, bottom left" },
+  ask_drag_tip: "Drag the header to move the panel; it floats over the page. Drag any edge or corner to resize it.",
   ask_settings_saved: "Saved in this browser.",
   ask_minimize: "Minimize the assistant to an icon",
   ask_launcher: "Ask the Reinvent WP AI Agent",

@@ -136,6 +136,8 @@ export function useFloatingPanel({ floating, top, onFloat }: FloatingOptions) {
   const panelRef = useRef<HTMLElement | null>(null);
   const [geometry, setGeometry] = useState<Geometry | null>(() => readGeometry(browserStorage()));
   const [moving, setMoving] = useState(false);
+  /** The handle being dragged right now, so its border sides can light up. */
+  const [resizing, setResizing] = useState<Handle | null>(null);
 
   const bounds = useCallback((): Bounds => ({ width: window.innerWidth, height: window.innerHeight, top }), [top]);
 
@@ -171,6 +173,7 @@ export function useFloatingPanel({ floating, top, onFloat }: FloatingOptions) {
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
       setMoving(false);
+      setResizing(null);
       writeGeometry(browserStorage(), latest);
     };
     window.addEventListener("pointermove", move);
@@ -197,8 +200,9 @@ export function useFloatingPanel({ floating, top, onFloat }: FloatingOptions) {
   const onResizeStart = (handle: Handle) => (event: ReactPointerEvent) => {
     if (event.button !== 0 || !geometry) return;
     event.stopPropagation();
+    setResizing(handle);
     track(event, geometry, (from, dx, dy) => resizeGeometry(from, handle, dx, dy, bounds()), HANDLE_CURSOR[handle]);
   };
 
-  return { panelRef, geometry: floating ? geometry : null, moving, onDragStart, onResizeStart };
+  return { panelRef, geometry: floating ? geometry : null, moving, resizing, onDragStart, onResizeStart };
 }
