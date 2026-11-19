@@ -95,16 +95,24 @@ class {{CLASS}} {
 	}
 
 	/**
-	 * The Activate button: activates one app of the catalog and comes back to the dashboard, which then shows Open and
-	 * Deactivate. `activate-multi` is WordPress' bulk-activation flag: every Reinvent WP plugin and Freemius skip their
-	 * "open the plugin after activation" redirect when it's set, so the admin stays here.
+	 * The app an Activate or Deactivate request is for, after its nonce and the user's right are checked. The page sends
+	 * these in the background (`format=json`) and gets a JSON error back; a plain link gets the WordPress error page.
 	 *
-	 * @return void
+	 * @param string $action     ACTIVATE_ACTION or DEACTIVATE_ACTION.
+	 * @param string $capability activate_plugin or deactivate_plugin.
+	 * @return array{slug:string,file:string,json:bool}
 	 */
-	public static function activate() {
+	private static function app_request( $action, $capability ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Checked right below, per app.
 		$slug = isset( $_GET['app'] ) ? sanitize_key( wp_unslash( $_GET['app'] ) ) : '';
-		check_admin_referer( self::ACTIVATE_ACTION . '_' . $slug );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only picks the answer's format.
+		$json = isset( $_GET['format'] ) && 'json' === $_GET['format'];
+		if ( $json && ! check_ajax_referer( $action . '_' . $slug, '_wpnonce', false ) ) {
+			wp_send_json_error( array( 'message' => __( 'This page is out of date. Reload it and try again.', '{{TEXT_DOMAIN}}' ) ), 403 );
+		}
+		if ( ! $json ) {
+			check_admin_referer( $action . '_' . $slug );
+		}
 		if ( ! function_exists( 'activate_plugin' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
@@ -114,48 +122,119 @@ class {{CLASS}} {
 				$file = $app['file'];
 			}
 		}
-		if ( '' === $file || ! current_user_can( 'activate_plugin', $file ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to activate this plugin.', '{{TEXT_DOMAIN}}' ), '', array( 'response' => 403 ) );
+		if ( '' === $file || ! current_user_can( $capability, $file ) ) {
+			self::fail( $json, __( 'Sorry, you are not allowed to change this plugin.', '{{TEXT_DOMAIN}}' ), 403 );
 		}
-		$result = activate_plugin( $file );
-		if ( is_wp_error( $result ) ) {
-			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
-		}
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&activate-multi=true' ) );
-		exit;
+		return array(
+			'slug' => $slug,
+			'file' => $file,
+			'json' => $json,
+		);
 	}
 
 	/**
-	 * The Deactivate button: deactivates one app of the catalog, then goes back to the dashboard, or to the
-	 * Plugins screen when no Reinvent WP app is left active (the dashboard goes with the last one).
+	 * Stops with an error: JSON for the page, the WordPress error page for a plain link.
+	 *
+	 * @param bool   $json    Answer with JSON.
+	 * @param string $message Message.
+	 * @param int    $status  HTTP status.
+	 * @return void
+	 */
+	private static function fail( $json, $message, $status = 500 ) {
+		if ( $json ) {
+			wp_send_json_error( array( 'message' => $message ), $status );
+		}
+		wp_die( esc_html( $message ), '', array( 'response' => $status, 'back_link' => true ) );
+	}
+
+	/**
+	 * The page's card for one app, as it is now.
+	 *
+	 * @param string $slug App slug.
+	 * @return array|null
+	 */
+	private static function card( $slug ) {
+		foreach ( self::apps_for_page() as $card ) {
+			if ( $card['slug'] === $slug ) {
+				return $card;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The "open the plugin after activation" flags in the options table: every Reinvent WP plugin's
+	 * `<prefix>_do_activation_redirect` and Freemius' `fs_<type>_<slug>_activated` transient.
+	 *
+	 * @return string[] Option names.
+	 */
+	private static function activation_flags() {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- A one-off lookup of option names around one activation.
+		return (array) $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+				'%' . $wpdb->esc_like( '_do_activation_redirect' ),
+				$wpdb->esc_like( '_transient_fs_' ) . '%' . $wpdb->esc_like( '_activated' )
+			)
+		);
+	}
+
+	/**
+	 * The Activate button: activates one app of the catalog. The page calls it in the background (`format=json`) and
+	 * gets the app's new card back, so the card shows Open and Deactivate without a reload; the flags the activation
+	 * set to open the plugin on the next page load are removed. Without JavaScript it comes back to the dashboard with
+	 * `activate-multi`, WordPress' bulk-activation flag, which every Reinvent WP plugin and Freemius read as "don't
+	 * open the plugin". The Plugins screen keeps the plugins' own redirect.
+	 *
+	 * @return void
+	 */
+	public static function activate() {
+		$request = self::app_request( self::ACTIVATE_ACTION, 'activate_plugin' );
+		$before  = $request['json'] ? self::activation_flags() : array();
+		$result  = activate_plugin( $request['file'] );
+		// Output during activation (a notice, a stray space) doesn't stop it; WordPress still activates the plugin.
+		if ( is_wp_error( $result ) && 'unexpected_output' !== $result->get_error_code() ) {
+			self::fail( $request['json'], $result->get_error_message() );
+		}
+		if ( ! $request['json'] ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&activate-multi=true' ) );
+			exit;
+		}
+		foreach ( array_diff( self::activation_flags(), $before ) as $flag ) {
+			if ( 0 === strpos( $flag, '_transient_' ) ) {
+				delete_transient( substr( $flag, strlen( '_transient_' ) ) );
+			} else {
+				delete_option( $flag );
+			}
+		}
+		wp_send_json_success( array( 'app' => self::card( $request['slug'] ) ) );
+	}
+
+	/**
+	 * The Deactivate button: deactivates one app of the catalog. In the background (`format=json`) the page gets the
+	 * app's new card back, or `reload` with the Plugins screen when no Reinvent WP app is left active (the dashboard
+	 * goes with the last one). A plain link goes back to the dashboard, or to the Plugins screen in that case.
 	 *
 	 * @return void
 	 */
 	public static function deactivate() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Checked right below, per app.
-		$slug = isset( $_GET['app'] ) ? sanitize_key( wp_unslash( $_GET['app'] ) ) : '';
-		check_admin_referer( self::DEACTIVATE_ACTION . '_' . $slug );
-		if ( ! function_exists( 'deactivate_plugins' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		$request = self::app_request( self::DEACTIVATE_ACTION, 'deactivate_plugin' );
+		if ( is_plugin_active( $request['file'] ) ) {
+			deactivate_plugins( $request['file'] );
 		}
-		$file = '';
-		foreach ( self::catalog() as $app ) {
-			if ( $app['slug'] === $slug ) {
-				$file = $app['file'];
-			}
-		}
-		if ( '' === $file || ! is_plugin_active( $file ) || ! current_user_can( 'deactivate_plugin', $file ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to deactivate this plugin.', '{{TEXT_DOMAIN}}' ), '', array( 'response' => 403 ) );
-		}
-		deactivate_plugins( $file );
 
 		$still_active = false;
 		foreach ( self::catalog() as $app ) {
-			if ( $app['file'] !== $file && is_plugin_active( $app['file'] ) ) {
+			if ( $app['file'] !== $request['file'] && is_plugin_active( $app['file'] ) ) {
 				$still_active = true;
 			}
 		}
-		wp_safe_redirect( $still_active ? admin_url( 'admin.php?page=' . self::SLUG ) : admin_url( 'plugins.php?deactivate=true' ) );
+		$back = $still_active ? admin_url( 'admin.php?page=' . self::SLUG ) : admin_url( 'plugins.php?deactivate=true' );
+		if ( $request['json'] ) {
+			wp_send_json_success( $still_active ? array( 'app' => self::card( $request['slug'] ) ) : array( 'reload' => $back ) );
+		}
+		wp_safe_redirect( $back );
 		exit;
 	}
 

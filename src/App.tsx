@@ -1,8 +1,9 @@
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import { Box, Chip, CircularProgress, IconButton, Link, Stack, Tooltip, Typography } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppCard from "./AppCard";
+import { announceApp, UpdateAppContext } from "./appSwitch";
 import HubHero from "./hero/HubHero";
 import SuitePassCard from "./suite/SuitePassCard";
 import hubApps from "./apps";
@@ -138,7 +139,13 @@ function useNoticesAbove(): boolean {
  * (installed or not), the rest of the catalog with category chips, and the site's own apps at the bottom.
  */
 export default function App({ data }: { data: HubData }) {
-  const { installed, mustHave, more } = hubApps.sections(data.apps);
+  // Activate and Deactivate change a card in place (appSwitch.ts).
+  const [apps, setApps] = useState(data.apps);
+  const updateApp = useCallback((app: HubApp) => {
+    setApps((current) => current.map((item) => (item.slug === app.slug ? app : item)));
+    announceApp(app);
+  }, []);
+  const { installed, mustHave, more } = hubApps.sections(apps);
   const showSuite = data.show_suite !== false;
   const [refreshing, setRefreshing] = useState(false);
   const noticesAbove = useNoticesAbove();
@@ -223,9 +230,11 @@ export default function App({ data }: { data: HubData }) {
 
           <Stack spacing={5} sx={{ mt: 3 }}>
             {showSuite && <SuitePassCard />}
-            <MustHave apps={mustHave} />
-            <MoreApps apps={more} />
-            <YourApps apps={installed} />
+            <UpdateAppContext.Provider value={updateApp}>
+              <MustHave apps={mustHave} />
+              <MoreApps apps={more} />
+              <YourApps apps={installed} />
+            </UpdateAppContext.Provider>
           </Stack>
         </Box>
       </Box>

@@ -4,6 +4,8 @@ import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownR
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import {
   Box,
@@ -35,6 +37,7 @@ import { LINK_SX } from "./linkStyle";
 import { fileSummary, isTextFile, prepareTextFile, TEXT_EXTENSIONS, type PreparedFile } from "./textFile";
 import TextViewer from "./TextViewer";
 import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
+import { quoteText, roomFor, splitQuote, withQuote } from "./quote";
 import { NEUTRAL_BORDER } from "../theme";
 import type { PanelMode, Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
@@ -233,8 +236,31 @@ interface MessageProps {
   onApprove: (approved: boolean) => void;
 }
 
+/** The part of an answer a message replies to: one quiet line with a reply mark. */
+function QuoteLine({ text, onRemove }: { text: string; onRemove?: () => void }) {
+  return (
+    <Stack direction="row" alignItems="flex-start" spacing={0.75} sx={{ mb: 0.75, color: "text.secondary", minWidth: 0 }}>
+      <ReplyRoundedIcon sx={{ fontSize: 16, mt: "2px", flexShrink: 0 }} />
+      <Typography
+        variant="body2"
+        sx={{ flexGrow: 1, fontSize: "0.85rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+      >
+        “{text}”
+      </Typography>
+      {onRemove && (
+        <Tooltip title={strings.ask_reply_remove}>
+          <IconButton aria-label={strings.ask_reply_remove} onClick={onRemove} size="small" sx={{ p: 0.25, mt: "-1px" }}>
+            <CloseRoundedIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Stack>
+  );
+}
+
 function Message({ message, apps, config, draft, onFeedbackSent, now, onView, onViewFile, onApprove }: MessageProps) {
   if (message.role === "user") {
+    const quoted = splitQuote(message.content);
     return (
       <Stack alignItems="flex-end" spacing={0.25} sx={showActionsOnHover}>
         <Box sx={{ alignSelf: "flex-end", maxWidth: "85%", px: 1.5, py: 1, borderRadius: 2, bgcolor: "rgba(7, 21, 34, 0.05)" }}>
@@ -275,8 +301,9 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
               />
             </Box>
           )}
+          {quoted.quote && <QuoteLine text={quoted.quote} />}
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", fontSize: "0.95rem" }}>
-            {message.content}
+            {quoted.text}
           </Typography>
         </Box>
         <MessageActions text={message.content} at={message.at} now={now} align="right" />
@@ -284,7 +311,7 @@ function Message({ message, apps, config, draft, onFeedbackSent, now, onView, on
     );
   }
   return (
-    <Stack spacing={1} sx={showActionsOnHover}>
+    <Stack spacing={1} sx={showActionsOnHover} data-rwpbot-answer="">
       {Boolean(message.research?.searches.length) && message.research && <ResearchDetail research={message.research} apps={apps} />}
       {Boolean(message.steps?.length) && <StepLines steps={message.steps ?? []} />}
       {message.failed ? (
@@ -361,6 +388,50 @@ export default function AssistantPanel({
   const [attachError, setAttachError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Reply to part of an answer (quote.ts): selecting text in an answer shows a Reply button above the selection.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [quote, setQuote] = useState("");
+  const [replyTip, setReplyTip] = useState<{ text: string; x: number; y: number } | null>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return undefined;
+    const answerOf = (node: Node | null) => (node instanceof Element ? node : node?.parentElement)?.closest("[data-rwpbot-answer]") ?? null;
+    const check = () => {
+      const selection = window.getSelection();
+      const text = selection && !selection.isCollapsed ? selection.toString().trim() : "";
+      const answer = text ? answerOf(selection?.anchorNode ?? null) : null;
+      if (!selection || !text || !answer || !list.contains(answer) || answer !== answerOf(selection.focusNode)) {
+        setReplyTip(null);
+        return;
+      }
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      setReplyTip({ text, x: rect.left + rect.width / 2, y: rect.top });
+    };
+    const hide = () => setReplyTip(null);
+    const cleared = () => {
+      if (window.getSelection()?.isCollapsed) hide();
+    };
+    list.addEventListener("mouseup", check);
+    list.addEventListener("keyup", check);
+    list.addEventListener("scroll", hide);
+    document.addEventListener("selectionchange", cleared);
+    return () => {
+      list.removeEventListener("mouseup", check);
+      list.removeEventListener("keyup", check);
+      list.removeEventListener("scroll", hide);
+      document.removeEventListener("selectionchange", cleared);
+    };
+  }, []);
+  useEffect(() => {
+    if (!messages.length) setQuote("");
+  }, [messages.length]);
+  const replyTo = (text: string) => {
+    setQuote(quoteText(text));
+    setReplyTip(null);
+    window.getSelection()?.removeAllRanges();
+    inputRef.current?.focus();
+  };
+
   /**
    * Adds pasted, dropped or chosen files: screenshots shrunk (up to MAX_IMAGES), one text file
    * trimmed to its newest lines and masked; anything else is refused.
@@ -414,7 +485,8 @@ export default function AssistantPanel({
 
   const submit = (text: string) => {
     if ((!text.trim() && !attachments.length && !file) || loading) return;
-    onSend(text, attachments, file);
+    onSend(withQuote(quote, text), attachments, file);
+    setQuote("");
     setDraft("");
     setAttachments([]);
     setFile(null);
@@ -426,7 +498,6 @@ export default function AssistantPanel({
       event.preventDefault();
       submit(draft);
     }
-    if (event.key === "Escape" && !embedded) onClose();
   };
 
   return (
@@ -435,11 +506,22 @@ export default function AssistantPanel({
       ref={floating.panelRef}
       role="dialog"
       aria-label={strings.ask_title}
+      // Esc anywhere in the panel: first drops a reply quote, then minimizes (the viewers' own Esc stops at their dialog).
+      tabIndex={-1}
+      onKeyDown={(event: KeyboardEvent) => {
+        if (event.key !== "Escape" || event.defaultPrevented || embedded) return;
+        event.preventDefault();
+        setReplyTip(null);
+        if (quote) setQuote("");
+        else onClose();
+      }}
       onDragOver={(event: DragEvent) => event.preventDefault()}
       onDrop={onDrop}
       style={placed ? { left: placed.x, top: placed.y, width: placed.width, height: placed.height, right: "auto", bottom: "auto" } : undefined}
       sx={embedded ? EMBEDDED_SX : {
         position: "fixed",
+        // Focusable for Esc (tabIndex -1); a click inside shouldn't draw a focus ring around the whole panel.
+        outline: "none",
         // Width and height include the border, so a dragged or resized panel fits the window exactly.
         boxSizing: "border-box",
         top: surface === "wp-admin" ? 46 : 0,
@@ -591,6 +673,7 @@ export default function AssistantPanel({
       )}
 
       <Stack
+        ref={listRef}
         spacing={2}
         sx={{
           flexGrow: 1,
@@ -664,6 +747,36 @@ export default function AssistantPanel({
         <div ref={endRef} />
       </Stack>
 
+      {replyTip && (
+        <Button
+          size="small"
+          variant="contained"
+          disableElevation
+          startIcon={<ReplyRoundedIcon sx={{ fontSize: "16px !important" }} />}
+          // Keep the selection while pressing.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => replyTo(replyTip.text)}
+          sx={{
+            position: "fixed",
+            left: replyTip.x,
+            top: Math.max(replyTip.y - 40, 8),
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            borderRadius: 999,
+            px: 1.25,
+            py: 0.25,
+            minWidth: 0,
+            textTransform: "none",
+            fontWeight: 600,
+            bgcolor: "#1F2328",
+            boxShadow: "0 4px 14px rgba(7, 21, 34, 0.25)",
+            "&:hover": { bgcolor: "#000000" },
+          }}
+        >
+          {strings.ask_reply}
+        </Button>
+      )}
+
       <Box
         sx={{
           position: "relative",
@@ -697,6 +810,11 @@ export default function AssistantPanel({
             "&:focus-within": { borderColor: "rgba(7, 21, 34, 0.24)", boxShadow: "0 6px 28px rgba(7, 21, 34, 0.11)" },
           }}
         >
+          {quote && (
+            <Box sx={{ px: 1, pt: 0.5 }}>
+              <QuoteLine text={quote} onRemove={() => setQuote("")} />
+            </Box>
+          )}
           <AttachmentStrip
             images={attachments}
             file={file}
@@ -739,7 +857,7 @@ export default function AssistantPanel({
               placeholder={strings.ask}
               multiline
               maxRows={5}
-              inputProps={{ maxLength: 500, "aria-label": strings.ask }}
+              inputProps={{ maxLength: roomFor(quote), "aria-label": strings.ask }}
               sx={{
                 flexGrow: 1,
                 alignSelf: "center",

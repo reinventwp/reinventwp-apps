@@ -9,8 +9,15 @@ plugin. Read [README.md](./README.md) first: how the hub fits, the files, live r
 its own copy of the hub, and on a site with several Reinvent WP plugins **the copy with the highest `HUB_VERSION`
 serves the page**. So:
 
-- Bump the version on every change to the page, `bot.js` or the hub class, or older copies keep winning.
-- Same version must mean same code: when two copies share a version, whichever plugin WordPress loads first serves it.
+- **Bump against the latest published hub, not against your last change.** The published hub is the highest
+  `HUB_VERSION` in any plugin's newest WordPress.org release (`plugins/*/svn/*/tags/<newest>/`, e.g. 2.3.0). The dev
+  version is one bump above it, picked by semver below for everything since that release. While it's unpublished,
+  keep that version for further changes; don't bump again per change (2.5.0 stays 2.5.0 until a plugin ships it).
+  Raise it only when the changes since publishing need a bigger step (a patch-only dev version that gets a new
+  feature becomes the next minor).
+- After a plugin is released with the dev version, it's published: the next change bumps again.
+- Same version must mean same code once published. In dev, `npm run build` copies the hub into every published
+  plugin, so all local copies stay in step.
 - Semver, `MAJOR.MINOR.PATCH`:
   - **Patch** (2.3.0 → 2.3.1): a fix or a small change of behaviour, no new feature. Example: clearing other code's
     notices above the page, like the plugins' own admin pages do.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_CHANGED } from "../appSwitch";
 import strings from "../strings";
 import type { HubApp } from "../types";
 import {
@@ -144,6 +145,13 @@ function settle(message: ChatMessage): ChatMessage {
 
 /** The site's tools, fetched once per page; null when AI Agent doesn't offer any. */
 let agentTools: Promise<AgentTool[] | null> | null = null;
+
+// An app activated or deactivated on the hub brings or takes away its abilities: fetch them again on the next question.
+if (typeof window !== "undefined") {
+  window.addEventListener(APP_CHANGED, () => {
+    agentTools = null;
+  });
+}
 
 function loadAgentTools(agent: BotAgentConfig): Promise<AgentTool[] | null> {
   agentTools ??= fetchAgentTools(agent)

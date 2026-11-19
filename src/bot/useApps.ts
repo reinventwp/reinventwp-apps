@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { APP_CHANGED } from "../appSwitch";
 import type { HubApp } from "../types";
 import type { BotConfig } from "./types";
 
@@ -49,6 +50,16 @@ export default function useApps(config: BotConfig): HubApp[] {
       .catch(() => undefined);
     return () => controller.abort();
   }, [config.apps, config.catalogUrl]);
+
+  // The hub activated or deactivated an app without a reload (appSwitch.ts): keep its state current.
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const app = (event as CustomEvent<HubApp>).detail;
+      if (app?.slug) setApps((current) => current.map((item) => (item.slug === app.slug ? { ...item, ...app } : item)));
+    };
+    window.addEventListener(APP_CHANGED, changed);
+    return () => window.removeEventListener(APP_CHANGED, changed);
+  }, []);
 
   return apps;
 }

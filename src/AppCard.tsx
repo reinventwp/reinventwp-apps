@@ -1,6 +1,8 @@
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import { Box, Button, Chip, Link, Stack, Typography } from "@mui/material";
+import { useContext, useState, type MouseEvent } from "react";
 import hubApps from "./apps";
+import { switchApp, UpdateAppContext } from "./appSwitch";
 import appStories from "./story";
 import { NEUTRAL_BORDER } from "./theme";
 import strings from "./strings";
@@ -13,6 +15,23 @@ interface AppCardProps {
 /** One app, styled like the plugin cards on reinventwp.com/plugins. */
 export default function AppCard({ app }: AppCardProps) {
   const action = hubApps.action(app);
+  const updateApp = useContext(UpdateAppContext);
+  const [busy, setBusy] = useState<"activate" | "deactivate" | null>(null);
+
+  /** Activate and Deactivate run in the background and change this card; if that fails, the link runs as before. */
+  const runSwitch = (kind: "activate" | "deactivate", url: string) => async (event: MouseEvent) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || busy) return;
+    event.preventDefault();
+    setBusy(kind);
+    const result = await switchApp(url);
+    if (result && "app" in result) {
+      updateApp(result.app);
+      setBusy(null);
+    } else {
+      window.location.href = result?.reload ?? url;
+    }
+  };
+  const activating = app.state === "inactive" && action?.href === app.activate_url;
 
   const Story = appStories[app.slug];
 
@@ -74,15 +93,24 @@ export default function AppCard({ app }: AppCardProps) {
               variant={action.variant}
               disableElevation
               href={action.href}
+              onClick={activating ? runSwitch("activate", action.href) : undefined}
+              disabled={busy !== null}
               startIcon={action.install ? <DownloadRoundedIcon /> : undefined}
             >
-              {action.label}
+              {busy === "activate" ? strings.activating : action.label}
             </Button>
           )}
-          {/* Active apps: a quiet Deactivate next to Open; WordPress deactivates it and the page comes back here. */}
+          {/* Active apps: a quiet Deactivate next to Open; it runs in the background and the card shows Activate again. */}
           {app.deactivate_url && (
-            <Button size="small" color="inherit" href={app.deactivate_url} sx={{ color: "text.secondary", ml: "auto", "&:hover": { color: "text.primary" } }}>
-              {strings.deactivate}
+            <Button
+              size="small"
+              color="inherit"
+              href={app.deactivate_url}
+              onClick={runSwitch("deactivate", app.deactivate_url)}
+              disabled={busy !== null}
+              sx={{ color: "text.secondary", ml: "auto", "&:hover": { color: "text.primary" } }}
+            >
+              {busy === "deactivate" ? strings.deactivating : strings.deactivate}
             </Button>
           )}
         </Stack>
