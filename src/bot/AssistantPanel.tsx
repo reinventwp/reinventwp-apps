@@ -199,6 +199,9 @@ function Sources({ sources, label, wpAdmin }: { sources: AssistantSource[]; labe
             display: "inline-flex",
             alignItems: "center",
             gap: 0.5,
+            // In the column the link would stretch to the panel's width; only the words are clickable.
+            alignSelf: "flex-start",
+            maxWidth: "100%",
           }}
         >
           <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
