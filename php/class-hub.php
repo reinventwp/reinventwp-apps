@@ -58,12 +58,12 @@ class {{CLASS}} {
 	const REFRESH_ACTION = 'reinventwp_apps_refresh';
 
 	/**
-	 * admin-post action of the Deactivate button (hub 2.3.0+): deactivates an app and comes back here.
+	 * The admin-post action of the Deactivate button (hub 2.3.0+): deactivates an app and comes back here.
 	 */
 	const DEACTIVATE_ACTION = 'reinventwp_apps_deactivate';
 
 	/**
-	 * admin-post action of the Activate button (hub 2.5.0+): activates an app and comes back here, without the app's
+	 * The admin-post action of the Activate button (hub 2.5.0+): activates an app and comes back here, without the app's
 	 * own "open it after activation" redirect (that one stays for the Plugins screen).
 	 */
 	const ACTIVATE_ACTION = 'reinventwp_apps_activate';
@@ -144,7 +144,14 @@ class {{CLASS}} {
 		if ( $json ) {
 			wp_send_json_error( array( 'message' => $message ), $status );
 		}
-		wp_die( esc_html( $message ), '', array( 'response' => $status, 'back_link' => true ) );
+		wp_die(
+			esc_html( $message ),
+			'',
+			array(
+				'response'  => (int) $status,
+				'back_link' => true,
+			)
+		);
 	}
 
 	/**
@@ -709,10 +716,8 @@ class {{CLASS}} {
 				admin_url( 'admin.php?page=' . self::SLUG )
 			),
 			'page_url'    => admin_url( 'admin.php?page=' . self::SLUG ),
-			/*
-			 * The Suite Pass offer is for sites without a paid licence only: a plugin with PRO
-			 * returns true here (Text to Speech: its Freemius licence), and the offer stays hidden.
-			 */
+			// The Suite Pass offer is for sites without a paid licence only: a plugin with PRO
+			// returns true here (Text to Speech: its Freemius licence), and the offer stays hidden.
 			'show_suite'  => ! apply_filters( 'reinventwp_hub_has_paid_license', false ),
 			'suite_pass'  => self::suite_pass(),
 		);
