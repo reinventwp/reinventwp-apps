@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.3.1';
+	const HUB_VERSION = '2.4.0';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
