@@ -44,4 +44,4 @@ Then in that plugin: git-ignore `public/hub/`, call the script from its release 
 
 ## Change the page
 
-Edit here, bump `HUB_VERSION` in `php/class-hub.php` and `version` in `package.json`, run `npm test && npm run type`, then `npm run build` (it copies the page into every published plugin; commit their hub classes in the `wordpress` repo) and release them.
+Edit here, bump `HUB_VERSION` in `php/class-hub.php` and `version` in `package.json` (semver rules in [AGENTS.md](./AGENTS.md)), run `npm test && npm run type`, then `npm run build` (it copies the page into every published plugin; commit their hub classes in the `wordpress` repo) and release them.
