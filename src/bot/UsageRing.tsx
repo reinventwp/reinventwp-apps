@@ -2,6 +2,8 @@ import { Box, ButtonBase, Link, Popover, Stack, Tooltip, Typography } from "@mui
 import { useState, type MouseEvent } from "react";
 import hubApps from "../apps";
 import strings from "../strings";
+import type { HubApp } from "../types";
+import { suitePassStep } from "./agentLink";
 import { level, percent, resetLabel, ringShare, shareOf, type AssistantUsage, type UsageWindow } from "./usage";
 
 const SUITE_URL = "https://reinventwp.com/suite";
@@ -50,12 +52,48 @@ function WindowRow({ label, window }: { label: string; window: UsageWindow }) {
   );
 }
 
+/** "{before}<link>{after}" from a "%s" template. */
+function Sentence({ template, link }: { template: string; link: { href: string; label: string; external: boolean } }) {
+  const [before, after = ""] = template.split("%s");
+  return (
+    <>
+      {before}
+      <Link href={link.href} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener" : undefined} underline="always">
+        {link.label}
+      </Link>
+      {after}
+    </>
+  );
+}
+
+/**
+ * On the free plan: where to get the Suite Pass (not for sites that already pay for a Reinvent WP licence), and that
+ * a Suite Pass is confirmed through AI Agent: install it, activate it, or enter the key in it.
+ */
+function FreeSteps({ apps, paid }: { apps: HubApp[]; paid: boolean }) {
+  return (
+    <Stack spacing={0.75} sx={{ pt: 1.25, borderTop: "1px solid rgba(7, 21, 34, 0.08)" }}>
+      {!paid && (
+        <Typography variant="caption" color="text.secondary">
+          {strings.ask_usage_more}{" "}
+          <Link href={hubApps.siteLink(SUITE_URL, "assistant", "usage_ring")} target="_blank" rel="noopener" underline="always">
+            {strings.ask_usage_suite_link}
+          </Link>
+        </Typography>
+      )}
+      <Typography variant="caption" color="text.secondary">
+        <Sentence template={paid ? strings.ask_usage_have : strings.ask_usage_bought} link={suitePassStep(apps)} />
+      </Typography>
+    </Stack>
+  );
+}
+
 /**
  * The assistant's usage, like Claude's: a ring just before the privacy link that fills as this hour's or month's
  * allowance is used; it opens a popup with both windows and when they start again. Free sites without any paid
  * Reinvent WP licence also see where to get a bigger allowance.
  */
-export default function UsageRing({ usage, paid = false }: { usage: AssistantUsage; paid?: boolean }) {
+export default function UsageRing({ usage, apps, paid = false }: { usage: AssistantUsage; apps: HubApp[]; paid?: boolean }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const share = ringShare(usage);
   const plan = usage.plan === "pro" ? strings.ask_usage_suite : strings.ask_usage_free;
@@ -87,14 +125,7 @@ export default function UsageRing({ usage, paid = false }: { usage: AssistantUsa
           </Typography>
           <WindowRow label={strings.ask_usage_hour} window={usage.hour} />
           <WindowRow label={strings.ask_usage_month} window={usage.month} />
-          {usage.plan === "free" && !paid && (
-            <Typography variant="caption" color="text.secondary">
-              {strings.ask_usage_more}{" "}
-              <Link href={hubApps.siteLink(SUITE_URL, "assistant", "usage_ring")} target="_blank" rel="noopener" underline="always">
-                {strings.ask_usage_suite_link}
-              </Link>
-            </Typography>
-          )}
+          {usage.plan === "free" && <FreeSteps apps={apps} paid={paid} />}
         </Stack>
       </Popover>
     </>

@@ -909,8 +909,8 @@ export default function AssistantPanel({
             )}
           </Stack>
         </Box>
-        <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5} sx={{ mt: 0.5, px: 0.5, minHeight: 24 }}>
-          {usage && <UsageRing usage={usage} paid={config.paid} />}
+        <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1.5} sx={{ mt: 0.5, px: 0.5, minHeight: 24 }}>
+          {usage && <UsageRing usage={usage} apps={apps} paid={config.paid} />}
           <ButtonDialog
             title={strings.ask_privacy_title}
             closeLabel={strings.ask_dialog_close}
