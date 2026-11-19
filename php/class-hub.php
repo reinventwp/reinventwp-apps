@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.4.0';
+	const HUB_VERSION = '2.5.0';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -63,6 +63,12 @@ class {{CLASS}} {
 	const DEACTIVATE_ACTION = 'reinventwp_apps_deactivate';
 
 	/**
+	 * admin-post action of the Activate button (hub 2.5.0+): activates an app and comes back here, without the app's
+	 * own "open it after activation" redirect (that one stays for the Plugins screen).
+	 */
+	const ACTIVATE_ACTION = 'reinventwp_apps_activate';
+
+	/**
 	 * Whether this copy registered the menu (and so owns the dashboard).
 	 *
 	 * @var bool
@@ -85,6 +91,38 @@ class {{CLASS}} {
 		// Every copy registers it (admin-post.php doesn't build the menu, so the owner isn't known there); the first one
 		// to run handles the request and exits.
 		add_action( 'admin_post_' . self::DEACTIVATE_ACTION, array( __CLASS__, 'deactivate' ) );
+		add_action( 'admin_post_' . self::ACTIVATE_ACTION, array( __CLASS__, 'activate' ) );
+	}
+
+	/**
+	 * The Activate button: activates one app of the catalog and comes back to the dashboard, which then shows Open and
+	 * Deactivate. `activate-multi` is WordPress' bulk-activation flag: every Reinvent WP plugin and Freemius skip their
+	 * "open the plugin after activation" redirect when it's set, so the admin stays here.
+	 *
+	 * @return void
+	 */
+	public static function activate() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Checked right below, per app.
+		$slug = isset( $_GET['app'] ) ? sanitize_key( wp_unslash( $_GET['app'] ) ) : '';
+		check_admin_referer( self::ACTIVATE_ACTION . '_' . $slug );
+		if ( ! function_exists( 'activate_plugin' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$file = '';
+		foreach ( self::catalog() as $app ) {
+			if ( $app['slug'] === $slug ) {
+				$file = $app['file'];
+			}
+		}
+		if ( '' === $file || ! current_user_can( 'activate_plugin', $file ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to activate this plugin.', '{{TEXT_DOMAIN}}' ), '', array( 'response' => 403 ) );
+		}
+		$result = activate_plugin( $file );
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ), '', array( 'back_link' => true ) );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&activate-multi=true' ) );
+		exit;
 	}
 
 	/**
@@ -366,20 +404,20 @@ class {{CLASS}} {
 	}
 
 	/**
-	 * Plugins-screen activation link. Built with add_query_arg, not wp_nonce_url: that one
+	 * The Activate button's link (see activate()). Built with add_query_arg, not wp_nonce_url: that one
 	 * returns an HTML-escaped URL ("&amp;"), which breaks once React puts it in an href.
 	 *
-	 * @param string $file Plugin file relative to wp-content/plugins.
+	 * @param string $slug App slug.
 	 * @return string
 	 */
-	private static function activate_url( $file ) {
+	private static function activate_url( $slug ) {
 		return add_query_arg(
 			array(
-				'action'   => 'activate',
-				'plugin'   => rawurlencode( $file ),
-				'_wpnonce' => wp_create_nonce( 'activate-plugin_' . $file ),
+				'action'   => self::ACTIVATE_ACTION,
+				'app'      => $slug,
+				'_wpnonce' => wp_create_nonce( self::ACTIVATE_ACTION . '_' . $slug ),
 			),
-			admin_url( 'plugins.php' )
+			admin_url( 'admin-post.php' )
 		);
 	}
 
@@ -430,7 +468,7 @@ class {{CLASS}} {
 				'state'          => $is_active ? 'active' : ( $is_installed ? 'inactive' : 'missing' ),
 				'version'        => $is_installed ? (string) $installed[ $app['file'] ]['Version'] : '',
 				'open_url'       => $is_active && ! empty( $app['page'] ) ? admin_url( $app['page'] ) : '',
-				'activate_url'   => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['file'] ) : '',
+				'activate_url'   => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['slug'] ) : '',
 				'deactivate_url' => $is_active && current_user_can( 'deactivate_plugin', $app['file'] ) ? self::deactivate_url( $app['slug'] ) : '',
 				'coming_soon'    => $coming_soon,
 				'install_url'    => ! $is_installed && $can_install && ! $coming_soon ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',

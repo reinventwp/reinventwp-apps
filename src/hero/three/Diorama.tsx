@@ -113,8 +113,13 @@ function Stage({ scene, changeS, pointer, onReady }: DioramaProps) {
   return (
     <>
       <hemisphereLight ref={sky} />
-      <directionalLight castShadow ref={sun} shadow-bias={-0.0004} shadow-mapSize={[1024, 1024]}>
-        <orthographicCamera args={[-7, 7, 7, -7, 0.5, 40]} attach="shadow-camera" />
+      {/*
+        Smooth shadows: a 2048px map over a 12-unit area (the plot is 8 wide) gives each shadow pixel about a third of
+        its old size, and normalBias moves the test off each surface along its normal, which removes the saw-tooth
+        stripes ("shadow acne") on walls the sun grazes without detaching the shadows from the objects.
+      */}
+      <directionalLight castShadow ref={sun} shadow-bias={-0.0002} shadow-mapSize={[2048, 2048]} shadow-normalBias={0.04}>
+        <orthographicCamera args={[-6, 6, 6, -6, 0.5, 40]} attach="shadow-camera" />
       </directionalLight>
 
       <group ref={world}>

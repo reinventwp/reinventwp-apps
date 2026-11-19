@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HubApp } from "../types";
 import {
+  APP_PICKER,
+  appPicker,
   approvalText,
   askRequest,
   callsThatFit,
   compactSteps,
   fetchAgentTools,
   historyContent,
+  firstTools,
   inputSummary,
   MAX_STEPS,
+  MAX_TOOLS,
+  pickedTools,
   parseTools,
   questionBody,
   runAgentLoop,
@@ -227,6 +232,20 @@ describe("agent loop", () => {
     expect(run.mock.calls.every(([, approved]) => approved)).toBe(true);
   });
 
+  it("approves a destructive batch once when it is called again with the same input", async () => {
+    const ask = vi
+      .fn()
+      .mockResolvedValueOnce({ tool_calls: [call("c1", "move-to-trash", { all: true })] })
+      .mockResolvedValueOnce({ tool_calls: [call("c2", "move-to-trash", { all: true })] })
+      .mockResolvedValueOnce({ tool_calls: [call("c3", "move-to-trash", { ids: [4] })] })
+      .mockResolvedValueOnce({ answer: "Done." });
+    const approve = vi.fn(async (_item: AgentToolCall, _tool: AgentTool) => true);
+    const run = vi.fn(async (_item: AgentToolCall, _approved: boolean) => ({ result: {} }));
+    await runAgentLoop({ tools: TOOLS, ask, run, approve, onProgress: () => undefined });
+    expect(approve.mock.calls.map(([item]) => item.id)).toEqual(["c1", "c3"]);
+    expect(run.mock.calls.map(([item, approved]) => [item.id, approved])).toEqual([["c1", true], ["c2", true], ["c3", true]]);
+  });
+
   it("records a decline and an unknown tool without running them", async () => {
     const ask = vi
       .fn()
@@ -282,5 +301,50 @@ describe("compactSteps", () => {
   it("leaves small results, errors and declines as they are", () => {
     const steps = [{ id: "1", name: "a/one", input: null, result: null, error: "Failed" }, step("2", "a/one", { ok: true })];
     expect(compactSteps(steps)).toEqual(steps);
+  });
+});
+
+describe("app picker (more tools than fit in one request)", () => {
+  const many = (app: string, count: number) => Array.from({ length: count }, (_, i): AgentTool => ({ name: `${app}/tool-${i}`, label: `${app} ${i}`, description: "", input_schema: null, readonly: true, destructive: false }));
+  const ALL = [...many("reinvent-database-cleaner", 20), ...many("reinvent-retina-images", 16), ...many("reinvent-watermark", 6)];
+  const apps = [{ slug: "reinvent-database-cleaner", name: "Database Cleaner", description: "Clean and speed up your database." }] as HubApp[];
+
+  it("sends every tool when they fit, else the page's own tools and the picker", () => {
+    expect(firstTools(TOOLS)).toBe(TOOLS);
+    const first = firstTools(ALL, ["reinvent-watermark/tool-0"], apps);
+    expect(first.map((item) => item.name)).toEqual(["reinvent-watermark/tool-0", APP_PICKER]);
+  });
+
+  it("lists the apps with names and descriptions, under 1,000 characters", () => {
+    const picker = appPicker(ALL, apps);
+    expect(picker.readonly).toBe(true);
+    expect(picker.description).toContain("Database Cleaner (reinvent-database-cleaner): Clean and speed up your database.");
+    expect(picker.description).toContain("reinvent-watermark");
+    expect(picker.description.length).toBeLessThanOrEqual(1000);
+    expect((picker.input_schema?.properties as { app: { enum: string[] } }).app.enum).toEqual(["reinvent-database-cleaner", "reinvent-retina-images", "reinvent-watermark"]);
+  });
+
+  it("keeps the tools already used first, then the app's own, up to the limit", () => {
+    const picked = pickedTools(ALL, "reinvent-database-cleaner", [{ id: "w0", name: "reinvent-watermark/tool-0", input: {}, result: {} }]) ?? [];
+    expect(picked).toHaveLength(MAX_TOOLS);
+    expect(picked[0].name).toBe("reinvent-watermark/tool-0");
+    expect(pickedTools(ALL, "nope", [])).toBeNull();
+  });
+
+  it("asks with the picker first, then with the picked app's tools; the pick isn't a step", async () => {
+    const sent: string[][] = [];
+    const ask = vi.fn(async (_steps: AgentStep[], tools: AgentTool[]) => {
+      sent.push(tools.map((item) => item.name));
+      if (sent.length === 1) return { tool_calls: [{ id: "p1", name: APP_PICKER, input: { app: "reinvent-retina-images" } }] };
+      if (sent.length === 2) return { tool_calls: [{ id: "c1", name: "reinvent-retina-images/tool-3", input: {} }] };
+      return { answer: "Done." };
+    });
+    const run = vi.fn(async () => ({ result: { ok: true } }));
+    const outcome = await runAgentLoop({ tools: ALL, apps, ask, run, approve: async () => true, onProgress: () => undefined });
+    expect(sent[0]).toEqual([APP_PICKER]);
+    expect(sent[1]).toHaveLength(16);
+    expect(sent[1].every((name) => name.startsWith("reinvent-retina-images/"))).toBe(true);
+    expect(outcome.steps.map((item) => item.name)).toEqual(["reinvent-retina-images/tool-3"]);
+    expect(outcome.reply).toEqual({ answer: "Done." });
   });
 });

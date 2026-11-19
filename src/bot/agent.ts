@@ -335,10 +335,65 @@ export async function runAgentTool(agent: BotAgentConfig, call: AgentToolCall, a
   }
 }
 
+/** Tools per request; Services refuses more ("Send at most 20 tools."). */
+export const MAX_TOOLS = 20;
+
+/** The tool the model calls first when the site has more tools than fit: it picks the app the question is about. */
+export const APP_PICKER = "reinventwp-apps/use-app";
+
+/** A tool's plugin slug ("reinvent-database-cleaner" for "reinvent-database-cleaner/clean"). */
+const toolApp = (name: string) => name.split("/")[0];
+
+/**
+ * The app picker, for a site whose tools don't fit in one request: it lists the apps that have tools (name, slug,
+ * what the app does) and loads the chosen app's tools for the rest of the question.
+ */
+export function appPicker(tools: AgentTool[], apps: HubApp[] = []): AgentTool {
+  const slugs = [...new Set(tools.map((tool) => toolApp(tool.name)))];
+  const lines = slugs.map((slug) => {
+    const app = apps.find((item) => item.slug === slug);
+    const about = (app?.description ?? "").replace(/\s+/g, " ").trim().slice(0, 90);
+    return `${app?.name ?? slug} (${slug})${about ? `: ${about}` : ""}`;
+  });
+  const intro = "This site's apps have more tools than fit in one request. To act on the site, first pick the one app the admin's question is about; its tools load for the rest of this question (one app per question). Apps: ";
+  return {
+    name: APP_PICKER,
+    label: "Choose an app",
+    description: (intro + lines.join("; ")).slice(0, 1000),
+    input_schema: { type: "object", properties: { app: { type: "string", enum: slugs, description: "The app's slug." } }, required: ["app"], additionalProperties: false },
+    readonly: true,
+    destructive: false,
+  };
+}
+
+/**
+ * The tools sent with the first request: all of them when they fit, otherwise the open page's own tools and the
+ * app picker.
+ */
+export function firstTools(tools: AgentTool[], pageTools: string[] = [], apps: HubApp[] = []): AgentTool[] {
+  if (tools.length <= MAX_TOOLS) return tools;
+  return [...tools.filter((tool) => pageTools.includes(tool.name)).slice(0, MAX_TOOLS - 1), appPicker(tools, apps)];
+}
+
+/**
+ * The tools after the model picked an app: the ones already used in this question (Services only accepts steps of
+ * tools it's sent) and then the app's own, up to MAX_TOOLS. Null when the app has no tools.
+ */
+export function pickedTools(tools: AgentTool[], app: unknown, steps: AgentStep[]): AgentTool[] | null {
+  const own = tools.filter((tool) => toolApp(tool.name) === app);
+  if (!own.length) return null;
+  const used = tools.filter((tool) => steps.some((step) => step.name === tool.name));
+  return [...used, ...own.filter((tool) => !used.includes(tool))].slice(0, MAX_TOOLS);
+}
+
 export interface AgentLoop {
   tools: AgentTool[];
-  /** Asks Services with the steps so far; throws when it can't answer. */
-  ask: (steps: AgentStep[]) => Promise<AssistantReply>;
+  /** The tools of the open admin page (their names); with many site tools, they're sent before an app is picked. */
+  pageTools?: string[];
+  /** The hub's apps, for the app picker's names and descriptions. */
+  apps?: HubApp[];
+  /** Asks Services with the steps so far and the tools for this request; throws when it can't answer. */
+  ask: (steps: AgentStep[], tools: AgentTool[]) => Promise<AssistantReply>;
   run: (call: AgentToolCall, approved: boolean) => Promise<{ result: unknown; error?: string }>;
   /** Shows the Approve card and waits for the admin. */
   approve: (call: AgentToolCall, tool: AgentTool) => Promise<boolean>;
@@ -349,19 +404,27 @@ export interface AgentLoop {
 /**
  * Asks, runs the tools Services calls for in order, and asks again until a normal answer comes back
  * (`reply`) or the step limit is reached (`stopped`, no reply). A change that isn't destructive
- * (a scan, called again until it's finished) is approved once per question; destructive ones every time.
+ * (a scan, called again until it's finished) is approved once per question; a destructive one once per
+ * input, so a batch job called again with the same input ("watermark all images", one step per call)
+ * continues without asking again, while other ids or items still need their own approval.
  */
-export async function runAgentLoop({ tools, ask, run, approve, onProgress }: AgentLoop) {
+export async function runAgentLoop({ tools, pageTools = [], apps = [], ask, run, approve, onProgress }: AgentLoop) {
   const steps: AgentStep[] = [];
   const approvedTools = new Set<string>();
+  const approvedCalls = new Set<string>();
+  const callKey = (call: AgentToolCall) => `${call.name}\n${JSON.stringify(call.input ?? {})}`;
+  // With more tools than fit, the model first picks an app (once per question; that call isn't a step).
+  let sent = firstTools(tools, pageTools, apps);
   let message = "";
   for (;;) {
-    const reply = await ask(steps.slice());
+    const reply = await ask(steps.slice(), sent);
     const calls = toolCalls(reply);
     if (!calls) return { reply, steps, message, stopped: false };
     if (typeof reply.message === "string" && reply.message.trim()) message = reply.message.trim();
-    const fitting = callsThatFit(calls, steps.length);
-    if (!fitting.length) return { reply: null, steps, message, stopped: true };
+    const pick = calls.find((call) => call.name === APP_PICKER && sent.some((tool) => tool.name === APP_PICKER));
+    // Picker calls never become steps (Services would refuse a step of a tool it wasn't sent).
+    const fitting = callsThatFit(calls.filter((call) => call.name !== APP_PICKER), steps.length);
+    if (!pick && !fitting.length) return { reply: null, steps, message, stopped: true };
     for (const call of fitting) {
       const tool = tools.find((item) => item.name === call.name);
       if (!tool) {
@@ -370,7 +433,7 @@ export async function runAgentLoop({ tools, ask, run, approve, onProgress }: Age
       }
       let approved = false;
       if (needsApproval(tool)) {
-        approved = !tool.destructive && approvedTools.has(tool.name);
+        approved = tool.destructive ? approvedCalls.has(callKey(call)) : approvedTools.has(tool.name);
         if (!approved) {
           onProgress({ steps: steps.slice(), message, running: null });
           approved = await approve(call, tool);
@@ -379,12 +442,18 @@ export async function runAgentLoop({ tools, ask, run, approve, onProgress }: Age
           steps.push({ ...call, result: null, declined: true });
           continue;
         }
-        if (!tool.destructive) approvedTools.add(tool.name);
+        if (tool.destructive) approvedCalls.add(callKey(call));
+        else approvedTools.add(tool.name);
       }
       onProgress({ steps: steps.slice(), message, running: call });
       const outcome = await run(call, approved);
       steps.push({ ...call, result: outcome.result ?? null, ...(outcome.error && { error: outcome.error }) });
       onProgress({ steps: steps.slice(), message, running: null });
+    }
+    if (pick) {
+      // The picked app's tools from now on; an unknown app leaves only the tools already used, so the model answers.
+      const app = isObject(pick.input) ? pick.input.app : undefined;
+      sent = pickedTools(tools, app, steps) ?? tools.filter((tool) => steps.some((step) => step.name === tool.name));
     }
   }
 }

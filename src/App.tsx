@@ -55,10 +55,34 @@ function MustHave({ apps }: { apps: HubApp[] }) {
   );
 }
 
-/** The apps the site already has, as the same cards, with Open or Activate. */
+/** Chips that filter a list of apps by category: each category with its count, then "All" last. */
+function CategoryChips({ apps, category, onChange }: { apps: HubApp[]; category: string; onChange: (category: string) => void }) {
+  return (
+    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+      {hubApps.chips(apps, strings.all).map((chip) => (
+        <Chip
+          key={chip.value || "all"}
+          label={`${chip.label}  ${chip.count}`}
+          clickable
+          color={category === chip.value ? "primary" : "default"}
+          variant={category === chip.value ? "filled" : "outlined"}
+          onClick={() => onChange(chip.value)}
+          aria-pressed={category === chip.value}
+          sx={{ fontWeight: 600, whiteSpace: "pre" }}
+        />
+      ))}
+    </Stack>
+  );
+}
+
+/** The apps the site already has, as the same cards, with Open or Activate; from 4 apps on, with category chips. */
 function YourApps({ apps }: { apps: HubApp[] }) {
+  // Null until the user picks a chip: the first category is on by default.
+  const [picked, setPicked] = useState<string | null>(null);
   if (!apps.length) return null;
   const active = apps.filter((app) => app.state === "active").length;
+  const categorized = hubApps.categorized(apps);
+  const category = hubApps.selectedCategory(hubApps.chips(apps, strings.all), picked);
   return (
     <Box component="section" aria-labelledby="rwp-your-apps">
       <Stack direction="row" spacing={1.5} alignItems="baseline" sx={{ mb: 2 }}>
@@ -69,37 +93,25 @@ function YourApps({ apps }: { apps: HubApp[] }) {
           {strings.your_apps_active.replace("%d", String(active))}
         </Typography>
       </Stack>
-      <CardGrid apps={apps} />
+      {categorized && <CategoryChips apps={apps} category={category} onChange={setPicked} />}
+      <CardGrid apps={categorized ? hubApps.inCategory(apps, category) : apps} />
     </Box>
   );
 }
 
 /** The other apps the site doesn't have, with chips that filter them by category. */
 function MoreApps({ apps }: { apps: HubApp[] }) {
-  const [category, setCategory] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
   if (!apps.length) return null;
   const chips = hubApps.chips(apps, strings.all);
-  const shown = hubApps.inCategory(apps, category);
+  // One category only: no chips, every app shows.
+  const filtered = chips.length > 2;
+  const category = hubApps.selectedCategory(chips, picked);
   return (
     <Box component="section" aria-labelledby="rwp-more-apps">
       <SectionTitle id="rwp-more-apps" title={strings.more_apps} intro={strings.more_apps_intro} />
-      {chips.length > 2 && (
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
-          {chips.map((chip) => (
-            <Chip
-              key={chip.value || "all"}
-              label={`${chip.label}  ${chip.count}`}
-              clickable
-              color={category === chip.value ? "primary" : "default"}
-              variant={category === chip.value ? "filled" : "outlined"}
-              onClick={() => setCategory(chip.value)}
-              aria-pressed={category === chip.value}
-              sx={{ fontWeight: 600, whiteSpace: "pre" }}
-            />
-          ))}
-        </Stack>
-      )}
-      <CardGrid apps={shown} />
+      {filtered && <CategoryChips apps={apps} category={category} onChange={setPicked} />}
+      <CardGrid apps={filtered ? hubApps.inCategory(apps, category) : apps} />
     </Box>
   );
 }

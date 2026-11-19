@@ -270,7 +270,7 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
       const tools = merged.length ? merged : null;
       const pageTool = (name: string) => pageTools.find((tool) => tool.name === name);
       /** One request to Services (through AI Agent's bot/ask when it's there); with site tools, the steps so far go along. */
-      const ask = async (steps: AgentStep[]): Promise<AssistantReply> => {
+      const ask = async (steps: AgentStep[], sent: AgentTool[] | null = tools): Promise<AssistantReply> => {
         const [askUrl, init] = askRequest(
           url,
           agent,
@@ -285,7 +285,8 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
               page: surface === "website" ? window.location.pathname : page,
               apps,
               // Older results are compacted so a long run (big settings lists, repeated scans) stays small.
-              agent: tools && { tools, steps: compactSteps(steps) },
+              // Only the tools that fit (agent.ts firstTools / pickedTools); every step's tool is among them.
+              agent: sent && { tools: sent, steps: compactSteps(steps) },
             }),
           ),
         );
@@ -302,6 +303,8 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         if (tools) {
           const outcome = await runAgentLoop({
             tools,
+            pageTools: pageTools.map((tool) => tool.name),
+            apps,
             ask,
             run: async (call, approved) => {
               const own = pageTool(call.name);

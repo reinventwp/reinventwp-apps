@@ -101,9 +101,9 @@ describe("page sections", () => {
   it("counts the main categories for the chips and filters by them", () => {
     const { more } = hubApps.sections(apps);
     expect(hubApps.chips(more, "All")).toEqual([
-      { label: "All", value: "", count: 3 },
       { label: "Media", value: "Media", count: 2 },
       { label: "AI", value: "AI", count: 1 },
+      { label: "All", value: "", count: 3 },
     ]);
     expect(hubApps.inCategory(more, "Media").map((item) => item.slug)).toEqual(["reinvent-lightbox", "reinvent-image-links"]);
     expect(hubApps.inCategory(more, "")).toHaveLength(3);
@@ -112,5 +112,56 @@ describe("page sections", () => {
   it("treats apps from older hubs without categories as not Must have", () => {
     const { mustHave } = hubApps.sections([{ ...app("x", "missing"), category: "Media" }]);
     expect(mustHave).toEqual([]);
+  });
+});
+
+describe("hubApps.categorized", () => {
+  const inCategory = (slug: string, category: string): HubApp => ({ ...app(slug, "active"), category });
+
+  it("starts at 4 apps in more than one category", () => {
+    const three = [inCategory("a", "Content"), inCategory("b", "AI"), inCategory("c", "Media")];
+    expect(hubApps.categorized(three)).toBe(false);
+    expect(hubApps.categorized([...three, inCategory("d", "Media")])).toBe(true);
+  });
+
+  it("stays off when every app is in the same category", () => {
+    expect(hubApps.categorized(["a", "b", "c", "d"].map((slug) => inCategory(slug, "Media")))).toBe(false);
+  });
+});
+
+describe("hubApps.selectedCategory", () => {
+  const chipList = [{ value: "Content" }, { value: "Media" }, { value: "" }];
+
+  it("starts on the first chip, and keeps what the user picked, All included", () => {
+    expect(hubApps.selectedCategory(chipList, null)).toBe("Content");
+    expect(hubApps.selectedCategory(chipList, "Media")).toBe("Media");
+    expect(hubApps.selectedCategory(chipList, "")).toBe("");
+  });
+
+  it("goes back to the first chip when the picked category is gone", () => {
+    expect(hubApps.selectedCategory(chipList, "AI")).toBe("Content");
+    expect(hubApps.selectedCategory([], null)).toBe("");
+  });
+});
+
+describe("Popular chip", () => {
+  const list: HubApp[] = [
+    { ...app("natural-text-to-speech", "active"), category: "Content", categories: ["Popular"] },
+    { ...app("ai-agent", "active"), category: "AI", categories: [] },
+    { ...app("reinvent-media-cleanup", "active"), category: "Media", categories: ["popular", "Must have"] },
+    { ...app("reinvent-watermark", "inactive"), category: "Media" },
+  ];
+
+  it("comes first when the list has popular apps, with All last", () => {
+    expect(hubApps.chips(list, "All").map((chip) => `${chip.label} ${chip.count}`)).toEqual(["Popular 2", "Content 1", "AI 1", "Media 2", "All 4"]);
+    expect(hubApps.selectedCategory(hubApps.chips(list, "All"), null)).toBe("Popular");
+  });
+
+  it("shows the apps the catalog marks as popular, whatever their main category", () => {
+    expect(hubApps.inCategory(list, "Popular").map((item) => item.slug)).toEqual(["natural-text-to-speech", "reinvent-media-cleanup"]);
+  });
+
+  it("is left out when no app is popular", () => {
+    expect(hubApps.chips([list[1], list[3]], "All").map((chip) => chip.label)).toEqual(["AI", "Media", "All"]);
   });
 });
