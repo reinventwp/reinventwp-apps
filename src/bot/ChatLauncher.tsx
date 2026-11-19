@@ -2,6 +2,7 @@ import ChatRoundedIcon from "@mui/icons-material/ChatRounded";
 import OpenInFullRoundedIcon from "@mui/icons-material/OpenInFullRounded";
 import { Box, ButtonBase, IconButton, Tooltip } from "@mui/material";
 import { NEUTRAL_BORDER } from "../theme";
+import { useDragOffset } from "./dragOffset";
 
 interface ChatLauncherProps {
   /** Bottom corner the button sits in. */
@@ -12,16 +13,24 @@ interface ChatLauncherProps {
   onRestore: () => void;
 }
 
-/** The minimized assistant: a chat icon in a bottom corner that opens the panel. */
+/**
+ * The minimized assistant: a chat icon in a bottom corner that opens the panel. It can be dragged elsewhere (the spot
+ * is remembered per corner); a click without moving still opens the panel.
+ */
 export default function ChatLauncher({ side, label, restoreLabel, onOpen, onRestore }: ChatLauncherProps) {
   const tooltip = side === "left" ? "right" : "left";
+  const { dragging, transform, handlers } = useDragOffset(`reinventwp-assistant-${side}-offset`);
   return (
     <Box
+      {...handlers}
       sx={{
         position: "fixed",
         [side]: 20,
         bottom: 20,
         zIndex: 9988,
+        transform,
+        touchAction: "none",
+        ...(dragging && { cursor: "grabbing", "& *": { cursor: "grabbing !important" } }),
         "& .rwp-restore": { opacity: 0, transition: "opacity 0.15s ease" },
         "&:hover .rwp-restore, &:focus-within .rwp-restore": { opacity: 1 },
         "@media (hover: none)": { "& .rwp-restore": { opacity: 1 } },

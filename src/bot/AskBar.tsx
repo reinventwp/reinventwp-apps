@@ -3,6 +3,7 @@ import CloseFullscreenRoundedIcon from "@mui/icons-material/CloseFullscreenRound
 import { keyframes } from "@emotion/react";
 import { Box, ButtonBase, IconButton, Tooltip, Typography } from "@mui/material";
 import { NEUTRAL_BORDER } from "../theme";
+import { useDragOffset } from "./dragOffset";
 import useTypewriter from "./useTypewriter";
 
 interface AskBarProps {
@@ -20,20 +21,28 @@ interface AskBarProps {
 
 const blink = keyframes`50% { opacity: 0; }`;
 
-/** The "ask" field pinned to the bottom centre of the page; it types example problems and opens the assistant panel. */
+/**
+ * The "ask" field pinned to the bottom centre of the page; it types example problems and opens the assistant panel.
+ * It can be dragged elsewhere (the spot is remembered); a click without moving still opens the panel.
+ */
 export default function AskBar({ placeholder, phrases, anchor, onOpen, onMinimize, minimizeLabel }: AskBarProps) {
   const { text, animated } = useTypewriter(phrases, true);
+  const { dragging, transform, handlers } = useDragOffset("reinventwp-assistant-bar-offset");
 
   return (
     <Box
       sx={{ position: "fixed", bottom: 20, left: anchor.left, width: anchor.width, px: 2, boxSizing: "border-box", display: "flex", justifyContent: "center", pointerEvents: "none", zIndex: 9988 }}
     >
       <Box
+        {...handlers}
         sx={{
           position: "relative",
           pointerEvents: "auto",
           width: "100%",
           maxWidth: 480,
+          transform,
+          touchAction: "none",
+          ...(dragging && { cursor: "grabbing", "& *": { cursor: "grabbing !important" } }),
           "& .rwp-minimize": { opacity: 0, transition: "opacity 0.15s ease" },
           "&:hover .rwp-minimize, &:focus-within .rwp-minimize": { opacity: 1 },
           // Touch screens have no hover: keep it visible.

@@ -466,6 +466,9 @@ export default function AssistantPanel({
           },
         }),
         "@media (min-width: 783px)": { top: (surface === "wp-admin" ? 32 : 0) + (panelMode === "over" ? FLOAT_GAP : 0) },
+        // The sides being resized turn blue from the outer edge in: the panel's own border here, ResizeHighlight just inside.
+        // "&&" outranks the floating card's border, which is set inside a media query.
+        ...(placed && litHandle && { "&&": resizeBorderColors(litHandle) }),
         zIndex: 9989,
         color: "text.primary",
       }}
@@ -868,6 +871,22 @@ function ResizeHandle({
 const RESIZE_BLUE = "#2F80ED";
 
 /**
+ * The panel's own border, blue on the sides a handle resizes. The panel clips what lies over its border
+ * (overflow: hidden), so the outer pixel of the blue has to be the border itself.
+ *
+ * @example
+ * resizeBorderColors("ne"); // { borderTopColor: "#2F80ED", borderRightColor: "#2F80ED" }
+ */
+function resizeBorderColors(handle: Handle) {
+  return {
+    ...(handle.includes("n") && { borderTopColor: RESIZE_BLUE }),
+    ...(handle.includes("e") && { borderRightColor: RESIZE_BLUE }),
+    ...(handle.includes("s") && { borderBottomColor: RESIZE_BLUE }),
+    ...(handle.includes("w") && { borderLeftColor: RESIZE_BLUE }),
+  };
+}
+
+/**
  * Lights up the border sides a handle resizes: one side for an edge, the two sides that meet for a
  * corner. It is a rounded border laid over the panel's own, so the blue follows the corner curves.
  */
@@ -881,9 +900,9 @@ function ResizeHighlight({ handle }: { handle: Handle }) {
         inset: 0,
         zIndex: 2,
         pointerEvents: "none",
-        // Inside the panel's 1px border, so one less than its 16px radius.
+        // Inside the panel's 1px border (blue too while resizing), so one less than its 16px radius: 2px of blue in all.
         borderRadius: "15px",
-        border: "2px solid transparent",
+        border: "1px solid transparent",
         borderTopColor: blue("n"),
         borderRightColor: blue("e"),
         borderBottomColor: blue("s"),
