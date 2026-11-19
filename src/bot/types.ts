@@ -37,6 +37,12 @@ export interface BotAgentConfig {
   nonce: string;
   /** AI Agent REST `chats`: where chats are saved (AI Agent 1.0.5+); without it chats aren't saved. */
   chats?: string;
+  /**
+   * AI Agent REST `POST bot/ask`: the assistant's questions go here instead of straight to Services. AI Agent forwards
+   * the body unchanged, signed with the site's Suite Pass, so Services can give PRO limits; the answer has the same
+   * shape as Services'. Without it (older AI Agent) the questions go to Services directly.
+   */
+  ask?: string;
 }
 
 /** A site tool from `GET bot/tools`: one WordPress ability. */

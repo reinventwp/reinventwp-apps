@@ -293,9 +293,24 @@ export function questionBody({ question, history, images = [], file, surface, pa
   };
 }
 
-/** `GET bot/tools` from AI Agent. */
+/**
+ * Where a question goes: through AI Agent's `bot/ask` when its config has one (wp-admin with AI Agent; the request
+ * reaches Services signed by the site's Suite Pass), else straight to Services. The body is the same either way.
+ */
+export function askRequest(servicesUrl: string, agent: BotAgentConfig | undefined, body: string): [string, RequestInit] {
+  if (agent?.ask) {
+    return [agent.ask, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-WP-Nonce": agent.nonce }, body }];
+  }
+  return [servicesUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body }];
+}
+
+/**
+ * `GET bot/tools` from AI Agent. Credentials are always sent (like the chats): on the AI Agent dev server the page
+ * (localhost:3001) and WordPress (localhost:8000) are different origins, and without the login cookie WordPress
+ * refuses the nonce (rest_cookie_invalid_nonce). On wp-admin both are the same site, so nothing changes there.
+ */
 export async function fetchAgentTools(agent: BotAgentConfig): Promise<AgentTool[]> {
-  const response = await fetch(agent.tools, { credentials: "same-origin", headers: { "X-WP-Nonce": agent.nonce } });
+  const response = await fetch(agent.tools, { credentials: "include", headers: { "X-WP-Nonce": agent.nonce } });
   if (!response.ok) throw new Error(`bot/tools ${response.status}`);
   return parseTools(await response.json());
 }
@@ -305,7 +320,7 @@ export async function runAgentTool(agent: BotAgentConfig, call: AgentToolCall, a
   try {
     const response = await fetch(agent.run, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: "include",
       headers: { "Content-Type": "application/json", "X-WP-Nonce": agent.nonce },
       body: JSON.stringify({ ability: call.name, input: call.input, approved }),
     });

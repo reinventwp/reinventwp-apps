@@ -4,6 +4,7 @@ import type { HubApp } from "../types";
 import {
   appName,
   approvalText,
+  askRequest,
   compactSteps,
   fetchAgentTools,
   historyContent,
@@ -268,12 +269,12 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
       const merged = [...pageTools, ...(siteTools ?? []).filter((tool) => !pageTools.some((item) => item.name === tool.name))];
       const tools = merged.length ? merged : null;
       const pageTool = (name: string) => pageTools.find((tool) => tool.name === name);
-      /** One request to Services; with site tools, the steps so far go along. */
+      /** One request to Services (through AI Agent's bot/ask when it's there); with site tools, the steps so far go along. */
       const ask = async (steps: AgentStep[]): Promise<AssistantReply> => {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
+        const [askUrl, init] = askRequest(
+          url,
+          agent,
+          JSON.stringify(
             questionBody({
               question,
               history,
@@ -287,7 +288,8 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
               agent: tools && { tools, steps: compactSteps(steps) },
             }),
           ),
-        });
+        );
+        const response = await fetch(askUrl, init);
         const body = await response.json().catch(() => null);
         if (!response.ok || !body?.data) throw new Error(body?.message || errorText);
         return body.data;

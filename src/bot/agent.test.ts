@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HubApp } from "../types";
 import {
   approvalText,
+  askRequest,
   callsThatFit,
   compactSteps,
   fetchAgentTools,
@@ -146,12 +147,31 @@ describe("question body", () => {
   });
 });
 
+describe("where a question goes", () => {
+  const SERVICES = "https://services.example/api/reinvent/plugins/assistant";
+  const body = JSON.stringify({ question: "Hi", history: [] });
+
+  it("goes through AI Agent's bot/ask with the nonce and the same body when the config has ask", () => {
+    const agent = { ...AGENT, ask: "/wp-json/ai-agent/v1/bot/ask" };
+    expect(askRequest(SERVICES, agent, body)).toEqual([
+      agent.ask,
+      { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-WP-Nonce": "abc123" }, body },
+    ]);
+  });
+
+  it("goes straight to Services without an agent config or without ask", () => {
+    const direct = [SERVICES, { method: "POST", headers: { "Content-Type": "application/json" }, body }];
+    expect(askRequest(SERVICES, undefined, body)).toEqual(direct);
+    expect(askRequest(SERVICES, AGENT, body)).toEqual(direct);
+  });
+});
+
 describe("AI Agent requests", () => {
   it("fetches the tools with the nonce", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ tools: [{ name: "a/b", label: "B", readonly: true }] }) });
     vi.stubGlobal("fetch", fetchMock);
     expect(await fetchAgentTools(AGENT)).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledWith(AGENT.tools, { credentials: "same-origin", headers: { "X-WP-Nonce": "abc123" } });
+    expect(fetchMock).toHaveBeenCalledWith(AGENT.tools, { credentials: "include", headers: { "X-WP-Nonce": "abc123" } });
   });
 
   it("runs a tool and returns its result or error", async () => {
