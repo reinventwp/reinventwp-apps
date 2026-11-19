@@ -39,6 +39,8 @@ import TextViewer from "./TextViewer";
 import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
 import PrivacyStory from "./PrivacyStory";
 import { quoteText, roomFor, splitQuote, withQuote } from "./quote";
+import UsageRing from "./UsageRing";
+import type { AssistantUsage } from "./usage";
 import { NEUTRAL_BORDER } from "../theme";
 import type { PanelMode, Placement } from "./placement";
 import ButtonDialog from "./ButtonDialog";
@@ -112,6 +114,8 @@ interface AssistantPanelProps {
   embedded?: boolean;
   /** Chats saved in WordPress (AI Agent active): the header gets a history button. */
   chats?: ChatsConfig | null;
+  /** The plan and its hourly and monthly use (usage.ts); the ring shows when it's known. */
+  usage?: AssistantUsage | null;
   chatId?: number | null;
   savedAt?: number;
   onOpenChat?: (id: number) => void;
@@ -370,6 +374,7 @@ export default function AssistantPanel({
   savedAt = 0,
   onOpenChat,
   onOpenSettings,
+  usage = null,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -904,7 +909,8 @@ export default function AssistantPanel({
             )}
           </Stack>
         </Box>
-        <Box sx={{ mt: 0.5, px: 1, textAlign: "right" }}>
+        <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5} sx={{ mt: 0.5, px: 0.5, minHeight: 24 }}>
+          {usage && <UsageRing usage={usage} paid={config.paid} />}
           <ButtonDialog
             title={strings.ask_privacy_title}
             closeLabel={strings.ask_dialog_close}
@@ -933,7 +939,7 @@ export default function AssistantPanel({
               </>
             )}
           </ButtonDialog>
-        </Box>
+        </Stack>
       </Box>
 
       {placed && litHandle && <ResizeHighlight handle={litHandle} />}

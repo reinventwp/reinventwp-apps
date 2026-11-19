@@ -679,6 +679,8 @@ class {{CLASS}} {
 				'url'      => esc_url_raw( self::assistant_url() ),
 				'apps'     => self::apps_for_page(),
 				'shift'    => '#wpcontent',
+				// A paid licence in any Reinvent WP plugin: the assistant's usage popup then never offers the Suite Pass.
+				'paid'     => (bool) apply_filters( 'reinventwp_hub_has_paid_license', false ),
 				// The feedback form prefills the admin's email; nothing is sent unless they press Send.
 				'feedback' => array(
 					'url'    => esc_url_raw( self::feedback_url() ),

@@ -98,6 +98,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
               onFeedbackSent={assistant.markFeedbackSent}
               chats={assistant.chats}
               chatId={assistant.chatId}
+              usage={assistant.usage}
               savedAt={assistant.savedAt}
               onOpenChat={(id) => void assistant.openChat(id)}
             />,
@@ -148,6 +149,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
           onFeedbackSent={assistant.markFeedbackSent}
           chats={assistant.chats}
           chatId={assistant.chatId}
+          usage={assistant.usage}
           savedAt={assistant.savedAt}
           onOpenChat={(id) => void assistant.openChat(id)}
           onOpenSettings={() => setSettingsOpen(true)}

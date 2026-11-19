@@ -20,6 +20,7 @@ import {
 import { chatsApi, chatsConfig } from "./chats";
 import { imageSrc, type PreparedImage } from "./images";
 import { fileSummary, type PreparedFile } from "./textFile";
+import { fetchUsage, readUsage, type AssistantUsage } from "./usage";
 import { embedStore } from "./embed";
 import type { AgentStep, AgentTool, AgentToolCall, BotAgentConfig, BotConfig, PageTool } from "./types";
 
@@ -205,6 +206,18 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
   const savingRef = useRef(false);
   /** Bumped after each save, so lists (the history dialog, AI Agent's sidebar) refresh. */
   const [savedAt, setSavedAt] = useState(0);
+  // The usage ring (usage.ts): read once, then from every answer, and again after a refused question.
+  const [usage, setUsage] = useState<AssistantUsage | null>(null);
+  // Keyed on the strings, so a host page passing a fresh config object doesn't fetch again.
+  const usageUrl = agent?.usage;
+  const usageNonce = agent?.nonce ?? "";
+  const refreshUsage = useCallback(() => {
+    const via = usageUrl ? { tools: "", run: "", nonce: usageNonce, usage: usageUrl } : undefined;
+    void fetchUsage({ url }, via).then((value) => value && setUsage(value));
+  }, [url, usageUrl, usageNonce]);
+  useEffect(() => {
+    refreshUsage();
+  }, [refreshUsage]);
 
   const setChatId = useCallback((id: number | null) => {
     chatIdRef.current = id;
@@ -300,7 +313,13 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         );
         const response = await fetch(askUrl, init);
         const body = await response.json().catch(() => null);
-        if (!response.ok || !body?.data) throw new Error(body?.message || errorText);
+        if (!response.ok || !body?.data) {
+          // A refused question (the limit) changes nothing, but the ring should show why.
+          if (response.status === 429) refreshUsage();
+          throw new Error(body?.message || errorText);
+        }
+        const answered = readUsage(body.data.usage);
+        if (answered) setUsage(answered);
         return body.data;
       };
       const views = (steps: AgentStep[]) => steps.map((step) => stepLine(step, tools?.find((tool) => tool.name === step.name)));
@@ -349,7 +368,7 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
         setLoading(false);
       }
     },
-    [agent, apps, errorText, loading, messages, page, surface, url],
+    [agent, apps, errorText, loading, messages, page, refreshUsage, surface, url],
   );
 
   /** The admin's answer on the Approve card. */
@@ -393,5 +412,5 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
     setMessages((current) => current.map((message, at) => (at === index ? { ...message, feedbackSent: true } : message)));
   }, []);
 
-  return { messages, loading, running, send, reset, loadSaved, openChat, chats, chatId, savedAt, markFeedbackSent, answerApproval };
+  return { messages, loading, running, send, reset, loadSaved, openChat, chats, chatId, savedAt, markFeedbackSent, answerApproval, usage };
 }

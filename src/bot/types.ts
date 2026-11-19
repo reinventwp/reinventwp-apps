@@ -22,6 +22,8 @@ export interface BotConfig {
    * admin's email and the site's hostname to prefill; on reinventwp.com the visitor types them.
    */
   feedback?: { url: string; email?: string; origin?: string };
+  /** A Reinvent WP plugin on this site has a paid licence: the usage popup then never offers the Suite Pass. */
+  paid?: boolean;
 }
 
 /**
@@ -43,6 +45,8 @@ export interface BotAgentConfig {
    * shape as Services'. Without it (older AI Agent) the questions go to Services directly.
    */
   ask?: string;
+  /** AI Agent REST `GET bot/usage`: the usage ring, signed like `ask` (AI Agent 1.0.6+). */
+  usage?: string;
 }
 
 /** A site tool from `GET bot/tools`: one WordPress ability. */
