@@ -3,6 +3,7 @@ import { Box, Chip, CircularProgress, IconButton, Link, Stack, Tooltip, Typograp
 import { ThemeProvider } from "@mui/material/styles";
 import { useCallback, useEffect, useState } from "react";
 import AppCard from "./AppCard";
+import SuitePassBadge from "./SuitePassBadge";
 import { announceApp, UpdateAppContext } from "./appSwitch";
 import HubHero from "./hero/HubHero";
 import SuitePassCard from "./suite/SuitePassCard";
@@ -198,8 +199,8 @@ export default function App({ data }: { data: HubData }) {
           </Box>
 
           <Stack direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
-            <Box>
-              <Typography variant="h5" component="h1" color="primary" gutterBottom sx={{ fontWeight: 700 }}>
+            <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mb: "0.35em" }}>
+              <Typography variant="h5" component="h1" color="primary" sx={{ fontWeight: 700 }}>
                 <Tooltip title={strings.catalog_hint} placement="right">
                   <Link
                     href={hubApps.siteLink(CATALOG_URL, "apps_hub", "all_plugins")}
@@ -214,7 +215,8 @@ export default function App({ data }: { data: HubData }) {
                   </Link>
                 </Tooltip>
               </Typography>
-            </Box>
+              {data.suite_pass && <SuitePassBadge pass={data.suite_pass} />}
+            </Stack>
             <Tooltip title={strings.refresh_hint}>
               <IconButton
                 aria-label={strings.refresh_hint}

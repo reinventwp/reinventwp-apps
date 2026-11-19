@@ -239,6 +239,27 @@ class {{CLASS}} {
 	}
 
 	/**
+	 * The site's Suite Pass for the badge next to the title: when it ends and how many sites it covers. Read from
+	 * `reinventwp_suite_pass`, which Text to Speech and AI Agent save when the key is activated; the key and the signing
+	 * secret in it never leave PHP. Null when the site has no Suite Pass.
+	 *
+	 * @return array|null { expires_at: ISO date or null (no end date), expired: bool, sites: int|null }
+	 */
+	private static function suite_pass() {
+		$saved   = get_option( 'reinventwp_suite_pass' );
+		$license = is_array( $saved ) && ! empty( $saved['success'] ) && isset( $saved['license'] ) && is_array( $saved['license'] ) ? $saved['license'] : null;
+		if ( ! $license || 'suite' !== ( $license['source'] ?? '' ) ) {
+			return null;
+		}
+		$ends = empty( $license['expires_at'] ) ? false : strtotime( (string) $license['expires_at'] );
+		return array(
+			'expires_at' => $ends ? gmdate( 'c', $ends ) : null,
+			'expired'    => $ends && $ends < time(),
+			'sites'      => isset( $license['quota'] ) && is_numeric( $license['quota'] ) ? (int) $license['quota'] : null,
+		);
+	}
+
+	/**
 	 * Only the newest copy registers the menu.
 	 *
 	 * @return void
@@ -691,6 +712,7 @@ class {{CLASS}} {
 			 * returns true here (Text to Speech: its Freemius licence), and the offer stays hidden.
 			 */
 			'show_suite'  => ! apply_filters( 'reinventwp_hub_has_paid_license', false ),
+			'suite_pass'  => self::suite_pass(),
 		);
 		wp_add_inline_script( 'reinventwp-apps', 'window.reinventwpApps = ' . wp_json_encode( $data ) . ';', 'before' );
 	}

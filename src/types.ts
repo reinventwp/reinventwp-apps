@@ -35,4 +35,13 @@ export interface HubData {
   page_url: string;
   /** False when a Reinvent WP plugin on the site has a paid licence: then the Suite Pass offer stays hidden. */
   show_suite?: boolean;
+  /** The site's Suite Pass (from reinventwp_suite_pass), or null/missing when it has none. */
+  suite_pass?: SuitePass | null;
+}
+
+/** A Suite Pass on this site: when it ends (null: no end date) and how many sites it covers. */
+export interface SuitePass {
+  expires_at: string | null;
+  expired: boolean;
+  sites: number | null;
 }

@@ -26,6 +26,9 @@ interface ChatHistoryProps {
 
 type RowState = { id: number; mode: "rename" | "delete" } | null;
 
+/** Long titles fade out at the right edge instead of an ellipsis (AI Agent's chat list does the same). */
+const FADE = "linear-gradient(to right, #000 calc(100% - 28px), transparent)";
+
 /** The chats in the dialog: open one, or rename, archive or delete it from its "…" menu. */
 function HistoryList({ config, activeId, savedAt, onOpen, onActiveGone, close }: ChatHistoryProps & { close: () => void }) {
   const [chats, setChats] = useState<SavedChat[] | null>(null);
@@ -125,7 +128,7 @@ function HistoryList({ config, activeId, savedAt, onOpen, onActiveGone, close }:
           }}
           sx={{ width: "100%", display: "block", textAlign: "left", pl: 1.25, pr: 5, py: 0.875, borderRadius: "10px" }}
         >
-          <Typography variant="body2" sx={{ fontWeight: selected ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <Typography variant="body2" sx={{ fontWeight: selected ? 600 : 500, overflow: "hidden", whiteSpace: "nowrap", maskImage: FADE, WebkitMaskImage: FADE }}>
             {chat.title}
           </Typography>
           <Typography variant="caption" color="text.secondary">
@@ -159,7 +162,7 @@ function HistoryList({ config, activeId, savedAt, onOpen, onActiveGone, close }:
           {strings.ask_history_loading}
         </Typography>
       ) : chats.length ? (
-        <Box sx={{ display: "grid", gap: 0.25 }}>{chats.map(item)}</Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0.25 }}>{chats.map(item)}</Box>
       ) : (
         <Typography variant="body2" color="text.secondary">
           {strings.ask_history_empty}
@@ -180,7 +183,7 @@ function HistoryList({ config, activeId, savedAt, onOpen, onActiveGone, close }:
       {showArchived &&
         archived !== null &&
         (archived.length ? (
-          <Box sx={{ display: "grid", gap: 0.25, mt: 0.5, opacity: 0.85 }}>{archived.map(item)}</Box>
+          <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0.25, mt: 0.5, opacity: 0.85 }}>{archived.map(item)}</Box>
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {strings.ask_history_none_archived}

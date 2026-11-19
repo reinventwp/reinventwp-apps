@@ -37,6 +37,7 @@ import { LINK_SX } from "./linkStyle";
 import { fileSummary, isTextFile, prepareTextFile, TEXT_EXTENSIONS, type PreparedFile } from "./textFile";
 import TextViewer from "./TextViewer";
 import ThinkingIndicator, { thinkingSteps } from "./ThinkingIndicator";
+import PrivacyStory from "./PrivacyStory";
 import { quoteText, roomFor, splitQuote, withQuote } from "./quote";
 import { NEUTRAL_BORDER } from "../theme";
 import type { PanelMode, Placement } from "./placement";
@@ -922,7 +923,12 @@ export default function AssistantPanel({
               </Link>
             )}
           >
-            {() => <PrivacyNote surface={surface} saved={Boolean(chats)} apps={apps} />}
+            {() => (
+              <>
+                <PrivacyStory saved={surface !== "website" && Boolean(chats)} />
+                <PrivacyNote surface={surface} saved={Boolean(chats)} apps={apps} />
+              </>
+            )}
           </ButtonDialog>
         </Box>
       </Box>
