@@ -8,7 +8,7 @@ const strings = {
   must_have: "Must have",
   must_have_intro: "The basic needs of every WordPress site.",
   more_apps: "More from Reinvent WP",
-  more_apps_intro: "Everything else we make, free on WordPress.org.",
+  more_apps_intro: "Everything else we make, free on WordPress.org or as a download.",
   all: "All",
   suite_eyebrow: "Suite Pass",
   suite_pass: "Suite Pass",
