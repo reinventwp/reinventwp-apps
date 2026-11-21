@@ -26,6 +26,8 @@ const strings = {
   activating: "Activating…",
   deactivating: "Deactivating…",
   install: "Install",
+  download: "Download",
+  download_hint: "Then upload it in Plugins → Add New",
   refresh_hint: "Get the latest list of apps now",
   catalog_hint: "See every Reinvent WP plugin on reinventwp.com",
   coming_soon: "Coming soon",

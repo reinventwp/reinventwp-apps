@@ -6,6 +6,8 @@ export interface AppAction {
   label: string;
   variant: "contained" | "outlined";
   install: boolean;
+  /** Opens a page on reinventwp.com in a new tab (Download), instead of a WordPress admin link. */
+  external: boolean;
 }
 
 /** Installed apps (active or not) and the ones the site doesn't have yet, in catalog order. */
@@ -25,13 +27,16 @@ function summary(template: string, apps: HubApp[]): string {
 
 /**
  * The next useful action: Open (main) for an active app with an admin page, Activate or
- * Install (secondary) otherwise. Null when there is nothing to do, like an active app that
- * works without settings.
+ * Install (secondary) otherwise, or Download for an app that isn't on WordPress.org yet but has
+ * a zip (its reinventwp.com page in a new tab; the hub never downloads or installs it itself).
+ * Null when there is nothing to do, like an active app that works without settings.
  */
 function action(app: HubApp): AppAction | null {
-  if (app.state === "active" && app.open_url) return { href: app.open_url, label: strings.open, variant: "contained", install: false };
-  if (app.state === "inactive" && app.activate_url) return { href: app.activate_url, label: strings.activate, variant: "outlined", install: false };
-  if (app.state === "missing" && app.install_url && !app.coming_soon) return { href: app.install_url, label: strings.install, variant: "outlined", install: true };
+  if (app.state === "active" && app.open_url) return { href: app.open_url, label: strings.open, variant: "contained", install: false, external: false };
+  if (app.state === "inactive" && app.activate_url) return { href: app.activate_url, label: strings.activate, variant: "outlined", install: false, external: false };
+  if (app.state === "missing" && app.install_url && !app.coming_soon) return { href: app.install_url, label: strings.install, variant: "outlined", install: true, external: false };
+  if (app.state === "missing" && app.download_url && !app.coming_soon)
+    return { href: siteLink(app.download_url, "apps_hub", app.slug), label: strings.download, variant: "outlined", install: false, external: true };
   return null;
 }
 

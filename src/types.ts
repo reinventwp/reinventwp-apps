@@ -22,6 +22,11 @@ export interface HubApp {
   coming_soon: boolean;
   /** WordPress.org install screen, when the user may install plugins. */
   install_url: string;
+  /**
+   * Not on WordPress.org yet but has a zip (hub 2.5.0+): its download page on reinventwp.com, opened in a new tab.
+   * The hub never downloads or installs the zip itself (WordPress.org guideline 8).
+   */
+  download_url?: string;
   /** Product page on reinventwp.com. */
   learn_url: string;
 }

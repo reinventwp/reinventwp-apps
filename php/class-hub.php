@@ -443,12 +443,13 @@ class {{CLASS}} {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
-			$slug   = isset( $item['slug'] ) ? (string) $item['slug'] : '';
-			$file   = isset( $item['plugin_file'] ) ? (string) $item['plugin_file'] : '';
-			$page   = isset( $item['admin_page'] ) ? (string) $item['admin_page'] : '';
-			$status = isset( $item['status'] ) ? (string) $item['status'] : '';
-			$title  = isset( $item['title'] ) ? sanitize_text_field( (string) $item['title'] ) : '';
-			$short  = isset( $item['short_title'] ) ? sanitize_text_field( (string) $item['short_title'] ) : '';
+			$slug    = isset( $item['slug'] ) ? (string) $item['slug'] : '';
+			$file    = isset( $item['plugin_file'] ) ? (string) $item['plugin_file'] : '';
+			$page    = isset( $item['admin_page'] ) ? (string) $item['admin_page'] : '';
+			$status  = isset( $item['status'] ) ? (string) $item['status'] : '';
+			$title   = isset( $item['title'] ) ? sanitize_text_field( (string) $item['title'] ) : '';
+			$short   = isset( $item['short_title'] ) ? sanitize_text_field( (string) $item['short_title'] ) : '';
+			$version = isset( $item['version'] ) && is_string( $item['version'] ) ? $item['version'] : '';
 			if (
 				! preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug )
 				|| ! preg_match( '/^[a-z0-9-]+\/[a-z0-9._-]+\.php$/i', $file )
@@ -466,6 +467,8 @@ class {{CLASS}} {
 				'page'        => $page,
 				'released'    => isset( $item['released'] ) && true === $item['released'],
 				'coming_soon' => 'coming-soon' === $status,
+				// The zip's version on reinventwp.com, for apps not on WordPress.org yet ('' = no zip).
+				'version'     => preg_match( '/^\d+(\.\d+){1,3}$/', $version ) ? $version : '',
 				'category'    => isset( $item['category'] ) ? sanitize_text_field( (string) $item['category'] ) : '',
 				'categories'  => self::clean_categories( isset( $item['extra_categories'] ) ? $item['extra_categories'] : array() ),
 				'href'        => self::product_url( isset( $item['href'] ) ? (string) $item['href'] : '' ),
@@ -560,8 +563,11 @@ class {{CLASS}} {
 		$cards        = array();
 		foreach ( self::catalog() as $app ) {
 			$is_installed = isset( $installed[ $app['file'] ] );
-			// Not on WordPress.org yet: only a "Coming soon" card, or nothing.
-			$coming_soon = empty( $app['released'] ) && ! $is_installed;
+			// Not on WordPress.org yet: a Download link to the zip's page on reinventwp.com when there
+			// is a zip (the hub never downloads or installs it itself), else "Coming soon", or nothing.
+			$unreleased   = empty( $app['released'] ) && ! $is_installed;
+			$downloadable = $unreleased && ! empty( $app['version'] );
+			$coming_soon  = $unreleased && ! $downloadable;
 			if ( $coming_soon && empty( $app['coming_soon'] ) ) {
 				continue;
 			}
@@ -578,7 +584,8 @@ class {{CLASS}} {
 				'activate_url'   => $is_installed && ! $is_active && $can_activate ? self::activate_url( $app['slug'] ) : '',
 				'deactivate_url' => $is_active && current_user_can( 'deactivate_plugin', $app['file'] ) ? self::deactivate_url( $app['slug'] ) : '',
 				'coming_soon'    => $coming_soon,
-				'install_url'    => ! $is_installed && $can_install && ! $coming_soon ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
+				'install_url'    => ! $is_installed && $can_install && ! $unreleased ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
+				'download_url'   => $downloadable && $can_install ? self::product_url( '/download/' . $app['slug'] ) : '',
 				'learn_url'      => isset( $app['href'] ) ? (string) $app['href'] : '',
 			);
 		}
