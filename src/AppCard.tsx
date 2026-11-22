@@ -103,21 +103,16 @@ export default function AppCard({ app }: AppCardProps) {
           )}
           {/* Not on WordPress.org yet: a link to the plugin's page on reinventwp.com, which offers the zip; the hub never downloads or installs it. */}
           {action?.external && (
-            <Stack spacing={0.5} alignItems="flex-start">
-              <Button
-                variant={action.variant}
-                disableElevation
-                href={action.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                endIcon={<OpenInNewRoundedIcon />}
-              >
-                {action.label}
-              </Button>
-              <Typography variant="caption" color="text.secondary">
-                {strings.download_hint}
-              </Typography>
-            </Stack>
+            <Button
+              variant={action.variant}
+              disableElevation
+              href={action.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              endIcon={<OpenInNewRoundedIcon />}
+            >
+              {action.label}
+            </Button>
           )}
           {/* Active apps: a quiet Deactivate next to Open; it runs in the background and the card shows Activate again. */}
           {app.deactivate_url && (
