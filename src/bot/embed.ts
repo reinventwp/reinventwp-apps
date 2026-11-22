@@ -3,9 +3,11 @@
  * AI Agent plugin's admin page (a Claude-style app with its own sidebar) uses it for its chat view,
  * so the chat, its welcome and its agent loop are the same code everywhere.
  *
- *   window.reinventwpBotApi.mount(element, { agent? })  // draws the chat into element; returns an unmount function.
+ *   window.reinventwpBotApi.mount(element, { agent?, readOnly? })  // draws the chat into element; returns an unmount function.
  *                                                      // `agent` (tools, run, chats, nonce) is used when the page has no
  *                                                      // window.reinventwpBotAgent (the AI Agent dev server).
+ *                                                      // `readOnly`: a conversation to read (reinventwp.com's chat log):
+ *                                                      // no input, no request to Services, nothing saved in the browser.
  *   window.reinventwpBotApi.newChat()                  // starts a new conversation (the host's "New chat")
  *   window.reinventwpBotApi.openChat(id)               // opens a chat saved in WordPress (AI Agent)
  *   window.reinventwpBotApi.load(messages)             // shows a conversation the host has
@@ -33,7 +35,7 @@ export interface BotEmbedChange {
 }
 
 export interface BotEmbedApi {
-  mount: (element: HTMLElement, options?: { agent?: BotAgentConfig }) => () => void;
+  mount: (element: HTMLElement, options?: { agent?: BotAgentConfig; readOnly?: boolean }) => () => void;
   newChat: () => void;
   openChat: (id: number) => void;
   load: (messages: unknown[]) => void;
@@ -52,6 +54,13 @@ export const EMBED_READY_EVENT = "reinventwp-bot:ready";
 
 let host: HTMLElement | null = null;
 let hosted = false;
+/** The host only shows conversations (load); nothing can be asked. */
+let readOnly = false;
+/**
+ * The last conversation a host loaded, handed to the chat when it subscribes: the API exists as soon as bot.js runs,
+ * but the chat subscribes a moment later, so a load() in between would be lost.
+ */
+let lastLoad: unknown[] | null = null;
 /** Agent config from the host, used when the page printed none. */
 let hostAgent: BotAgentConfig | undefined;
 const openChatListeners = new Set<(id: number) => void>();
@@ -76,6 +85,8 @@ export const embedStore = {
   hosted: () => hosted,
   /** The agent config a host passed to mount(), if any. */
   agent: () => hostAgent,
+  /** True while a host that only shows conversations is mounted. */
+  readOnly: () => readOnly,
   /** The tools the open admin pages give the assistant (names already carry the plugin's slug). */
   pageTools(): PageTool[] {
     return Array.from(pages).flatMap((page) => page.tools);
@@ -106,6 +117,7 @@ export const embedStore = {
   },
   onLoad(listener: (messages: unknown[]) => void) {
     loadListeners.add(listener);
+    if (lastLoad) listener(lastLoad);
     return () => {
       loadListeners.delete(listener);
     };
@@ -121,9 +133,13 @@ export function installEmbedApi(): void {
   window.reinventwpBotApi = {
     mount(element, options) {
       if (options?.agent && !window.reinventwpBotAgent) hostAgent = options.agent;
+      readOnly = options?.readOnly === true;
       setHost(element);
       return () => {
-        if (host === element) setHost(null);
+        if (host !== element) return;
+        readOnly = false;
+        lastLoad = null;
+        setHost(null);
       };
     },
     newChat() {
@@ -133,7 +149,9 @@ export function installEmbedApi(): void {
       if (Number.isInteger(id) && id > 0) openChatListeners.forEach((listener) => listener(id));
     },
     load(messages) {
-      if (Array.isArray(messages)) loadListeners.forEach((listener) => listener(messages));
+      if (!Array.isArray(messages)) return;
+      lastLoad = messages;
+      loadListeners.forEach((listener) => listener(messages));
     },
     onChange(listener) {
       changeListeners.add(listener);

@@ -35,14 +35,16 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
   // A host page (AI Agent's admin) can draw the chat inside its own layout; see embed.ts.
   const host = useSyncExternalStore(embedStore.subscribe, embedStore.host, () => null);
   const hosted = useSyncExternalStore(embedStore.subscribe, embedStore.hosted, () => false);
+  // A host that only shows conversations (reinventwp.com's chat log): never asks Services anything.
+  const readOnly = useSyncExternalStore(embedStore.subscribe, embedStore.readOnly, () => false);
   // wp-admin waits for the admin: Services hears nothing until the assistant is opened (or a host page shows the chat).
   const waits = config.surface === "wp-admin";
-  const engaged = !waits || hosted || (pageAllows && asking);
+  const engaged = !readOnly && (!waits || hosted || (pageAllows && asking));
   // A host page may hand over the agent config (the AI Agent dev server has no printed one).
   const hostAgent = useSyncExternalStore(embedStore.subscribe, embedStore.agent, () => undefined);
-  const assistant = useAssistant(config, strings.ask_error, apps, agent ?? hostAgent, engaged);
+  const assistant = useAssistant(config, strings.ask_error, apps, agent ?? hostAgent, engaged, !readOnly);
   // The website asks /status before showing anything; wp-admin reads it from the usage (null until that answers).
-  const statusOn = useAvailability(waits ? null : `${config.url}/status`);
+  const statusOn = useAvailability(waits || readOnly ? null : `${config.url}/status`);
   const serviceOn = waits ? (assistant.usage?.available === false ? false : null) : statusOn;
   // Before it is asked, wp-admin shows the assistant; once Services says it's off, the closed assistant goes away.
   const available = pageAllows && (waits ? serviceOn !== false : serviceOn === true);
@@ -89,6 +91,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
           createPortal(
             <AssistantPanel
               embedded
+              readOnly={readOnly}
               apps={apps}
               config={config}
               surface={config.surface}

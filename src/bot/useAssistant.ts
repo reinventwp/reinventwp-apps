@@ -190,7 +190,7 @@ function finish(current: ChatMessage[], message: ChatMessage): ChatMessage[] {
  * site's Reinvent WP apps (slug, state, version) to Reinvent WP Services, which stores nothing.
  */
 /** `active` false: the usage is not read yet (wp-admin, before the admin opens the assistant). */
-export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[], agentConfig?: BotAgentConfig, active = true) {
+export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[], agentConfig?: BotAgentConfig, active = true, persist = true) {
   const { url, surface, page } = config;
   const [messages, setMessages] = useState<ChatMessage[]>(load);
   const [loading, setLoading] = useState(false);
@@ -252,7 +252,17 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chats is rebuilt from agent each render; its values are what matter.
   }, [chats?.chats, chats?.nonce, loading, messages, setChatId]);
 
+  // A read-only host (a chat log) shows someone else's conversation: never store it as this tab's chat, and go back
+  // to this tab's own conversation when it closes.
+  const persistRef = useRef(persist);
   useEffect(() => {
+    if (persistRef.current === persist) return;
+    persistRef.current = persist;
+    if (persist) setMessages(load());
+  }, [persist]);
+
+  useEffect(() => {
+    if (!persistRef.current) return;
     try {
       // Full-size screenshots stay in memory; storage keeps the small previews only.
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.map(({ full: _full, fileText: _fileText, ...message }) => message)));

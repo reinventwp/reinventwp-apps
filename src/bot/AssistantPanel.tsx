@@ -123,6 +123,8 @@ interface AssistantPanelProps {
   onOpenSettings?: () => void;
   /** Services said the assistant is off (asked when the panel opened): a line says so above the conversation. */
   offline?: boolean;
+  /** Only shows a conversation (a chat log): no input, no reply button. */
+  readOnly?: boolean;
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
@@ -378,6 +380,7 @@ export default function AssistantPanel({
   onOpenSettings,
   usage = null,
   offline = false,
+  readOnly = false,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -764,7 +767,7 @@ export default function AssistantPanel({
         <div ref={endRef} />
       </Stack>
 
-      {replyTip && (
+      {replyTip && !readOnly && (
         <Button
           size="small"
           variant="contained"
@@ -794,6 +797,7 @@ export default function AssistantPanel({
         </Button>
       )}
 
+      {!readOnly && (
       <Box
         sx={{
           position: "relative",
@@ -949,6 +953,7 @@ export default function AssistantPanel({
           </ButtonDialog>
         </Stack>
       </Box>
+      )}
 
       {placed && litHandle && <ResizeHighlight handle={litHandle} />}
       {placed &&
