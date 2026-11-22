@@ -145,6 +145,13 @@ describe("question body", () => {
     expect(body.agent).toEqual({ tools: [byName("get-status")], steps });
   });
 
+  it("sends the visitor's session only from reinventwp.com", () => {
+    const session = { id: "s_7Hk29xQm4pLz", chat: "c_x81kPq2m", visitor: { lang: "id-ID", firstPage: "/lightbox", referrer: "", utm: {} } };
+    expect(questionBody({ ...base, surface: "website", page: "/lightbox", session })).toMatchObject({ surface: "website", page: "/lightbox", session });
+    expect(questionBody({ ...base, session })).not.toHaveProperty("session");
+    expect(questionBody({ ...base, surface: "website", page: "/" })).not.toHaveProperty("session");
+  });
+
   it("never sends tools or the site from the website", () => {
     const body = questionBody({ ...base, surface: "website", page: "/", agent: { tools: TOOLS, steps: [] } });
     expect(body).not.toHaveProperty("agent");

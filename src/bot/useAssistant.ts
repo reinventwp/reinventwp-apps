@@ -20,6 +20,7 @@ import {
 import { chatsApi, chatsConfig } from "./chats";
 import { imageSrc, type PreparedImage } from "./images";
 import { fileSummary, type PreparedFile } from "./textFile";
+import { newChat, questionSession } from "./visitor";
 import { fetchUsage, readUsage, type AssistantUsage } from "./usage";
 import { embedStore } from "./embed";
 import type { AgentStep, AgentTool, AgentToolCall, BotAgentConfig, BotConfig, PageTool } from "./types";
@@ -305,6 +306,7 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
               surface,
               // reinventwp.com navigates without reloading, so read the page the question is asked on.
               page: surface === "website" ? window.location.pathname : page,
+              session: surface === "website" ? questionSession() : null,
               apps,
               // Older results are compacted so a long run (big settings lists, repeated scans) stays small.
               // Only the tools that fit (agent.ts firstTools / pickedTools); every step's tool is among them.
@@ -382,10 +384,12 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
   }, []);
 
   const reset = useCallback(() => {
+    // On reinventwp.com the next question starts another conversation in the visitor's session.
+    if (surface === "website") newChat();
     setMessages([]);
     savedRef.current = null;
     setChatId(null);
-  }, [setChatId]);
+  }, [setChatId, surface]);
 
   /** Shows a saved conversation (a host page's chat history); unfinished tool runs are settled. */
   const loadSaved = useCallback((saved: ChatMessage[]) => setMessages(saved.map(settle)), []);

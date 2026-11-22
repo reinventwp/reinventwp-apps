@@ -1,4 +1,5 @@
 import strings from "../strings";
+import type { QuestionSession } from "./visitor";
 import type { HubApp } from "../types";
 import type { AgentStep, AgentTool, AgentToolCall, BotAgentConfig, BotConfig } from "./types";
 
@@ -276,10 +277,12 @@ export interface QuestionInput {
   apps: HubApp[];
   /** The site's tools and the steps so far; only sent in wp-admin. */
   agent?: { tools: AgentTool[]; steps: AgentStep[] } | null;
+  /** reinventwp.com only: the visitor's session and conversation (visitor.ts), so Services keeps their chats together. */
+  session?: QuestionSession | null;
 }
 
 /** The body POSTed to Services' assistant. */
-export function questionBody({ question, history, images = [], file, surface, page, apps, agent }: QuestionInput) {
+export function questionBody({ question, history, images = [], file, surface, page, apps, agent, session }: QuestionInput) {
   const wpAdmin = surface === "wp-admin";
   return {
     question,
@@ -290,6 +293,7 @@ export function questionBody({ question, history, images = [], file, surface, pa
     page,
     ...(wpAdmin && { site: { apps: apps.map(({ slug, state, version }) => ({ slug, state, version })) } }),
     ...(wpAdmin && agent?.tools.length && { agent: { tools: toolsForService(agent.tools), steps: agent.steps } }),
+    ...(!wpAdmin && session && { session }),
   };
 }
 

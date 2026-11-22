@@ -35,7 +35,7 @@ const strings = {
   ask_title: "Reinvent WP AI Agent",
   ask_intro: "Tell me what's wrong with your site, and we'll give you a solution.",
   ask_notice: "We send your message, attachments and Reinvent WP app list to answer you. Nothing is saved.",
-  ask_notice_website: "We send your message and attachments to answer you. Nothing is saved.",
+  ask_notice_website: "We send your message and attachments to answer you, and keep the conversation (not the attachments) to improve our answers.",
   ask_notice_saved:
     "We send your message, attachments and Reinvent WP app list to answer you, and keep nothing. Your chats are saved in this WordPress site's database, so you can open them again from the chat history.",
   ask_notice_unsaved:
