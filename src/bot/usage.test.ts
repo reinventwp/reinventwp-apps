@@ -15,6 +15,13 @@ describe("usage ring", () => {
     expect(readUsage(null)).toBeNull();
   });
 
+  it("keeps whether the assistant is on, only when the usage endpoint says it", () => {
+    expect(readUsage({ ...usage, available: false })?.available).toBe(false);
+    expect(readUsage({ ...usage, available: true })?.available).toBe(true);
+    expect(readUsage(usage)).not.toHaveProperty("available");
+    expect(readUsage({ ...usage, available: "no" })).not.toHaveProperty("available");
+  });
+
   it("fills with the window closest to its limit", () => {
     const read = readUsage(usage)!;
     expect(ringShare(read)).toBeCloseTo(0.194, 3);

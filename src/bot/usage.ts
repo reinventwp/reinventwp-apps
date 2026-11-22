@@ -17,6 +17,8 @@ export interface AssistantUsage {
   plan: "free" | "pro";
   hour: UsageWindow;
   month: UsageWindow;
+  /** Whether the assistant is switched on; only the usage endpoint says it (answers' usage leaves it out). */
+  available?: boolean;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -40,7 +42,9 @@ export function readUsage(value: unknown): AssistantUsage | null {
   const hour = readWindow(value.hour);
   const month = readWindow(value.month);
   if (!hour || !month) return null;
-  return { plan: value.plan === "pro" ? "pro" : "free", hour, month };
+  const usage: AssistantUsage = { plan: value.plan === "pro" ? "pro" : "free", hour, month };
+  if (typeof value.available === "boolean") usage.available = value.available;
+  return usage;
 }
 
 /** How full one window is, 0–1. */

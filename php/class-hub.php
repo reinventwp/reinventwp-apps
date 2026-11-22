@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.5.0';
+	const HUB_VERSION = '2.5.1';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -563,8 +563,9 @@ class {{CLASS}} {
 		$cards        = array();
 		foreach ( self::catalog() as $app ) {
 			$is_installed = isset( $installed[ $app['file'] ] );
-			// Not on WordPress.org yet: a Download link to the zip's page on reinventwp.com when there
-			// is a zip (the hub never downloads or installs it itself), else "Coming soon", or nothing.
+			// Not on WordPress.org yet: a "Get it" link to the plugin's own page on reinventwp.com when there
+			// is a zip (the page offers the zip; the hub never links to, downloads or installs it), else
+			// "Coming soon", or nothing.
 			$unreleased   = empty( $app['released'] ) && ! $is_installed;
 			$downloadable = $unreleased && ! empty( $app['version'] );
 			$coming_soon  = $unreleased && ! $downloadable;
@@ -585,7 +586,7 @@ class {{CLASS}} {
 				'deactivate_url' => $is_active && current_user_can( 'deactivate_plugin', $app['file'] ) ? self::deactivate_url( $app['slug'] ) : '',
 				'coming_soon'    => $coming_soon,
 				'install_url'    => ! $is_installed && $can_install && ! $unreleased ? admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . rawurlencode( $app['slug'] ) ) : '',
-				'download_url'   => $downloadable && $can_install ? self::product_url( '/download/' . $app['slug'] ) : '',
+				'download_url'   => $downloadable && $can_install ? self::product_url( ! empty( $app['href'] ) ? (string) $app['href'] : '/plugins' ) : '',
 				'learn_url'      => isset( $app['href'] ) ? (string) $app['href'] : '',
 			);
 		}

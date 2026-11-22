@@ -121,6 +121,8 @@ interface AssistantPanelProps {
   onOpenChat?: (id: number) => void;
   /** Opens the assistant's settings (SettingsDialog, drawn by Bot.tsx); the header gets a gear. */
   onOpenSettings?: () => void;
+  /** Services said the assistant is off (asked when the panel opened): a line says so above the conversation. */
+  offline?: boolean;
 }
 
 /** The AI Agent page on reinventwp.com; from wp-admin it carries UTM tags. */
@@ -375,6 +377,7 @@ export default function AssistantPanel({
   onOpenChat,
   onOpenSettings,
   usage = null,
+  offline = false,
 }: AssistantPanelProps) {
   const [draft, setDraft] = useState("");
   const last = messages[messages.length - 1];
@@ -740,6 +743,11 @@ export default function AssistantPanel({
             onApprove={onApprove}
           />
         ))}
+        {offline && (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 0.5 }}>
+            {strings.ask_offline}
+          </Typography>
+        )}
         {loading && !last?.approval && (
           // While tools run: the one running, or "Thinking…" while Services decides the next step.
           <ThinkingIndicator

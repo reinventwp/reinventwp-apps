@@ -3,15 +3,15 @@ import { useEffect, useState } from "react";
 const TIMEOUT_MS = 4000;
 
 /**
- * Asks Reinvent WP Services once whether the assistant is on. False until it answers yes,
- * so the field never flashes when it's off or Services can't be reached. Null: no assistant
- * on this page (a hub built before the assistant).
+ * Asks Reinvent WP Services once whether the assistant is on (the website, before it shows the assistant; wp-admin
+ * passes null and reads `available` from the usage instead). Null until it has answered, then true or false; a
+ * timeout or an unreachable Services is false.
  */
-export default function useAvailability(statusUrl: string | null): boolean {
-  const [available, setAvailable] = useState(false);
+export default function useAvailability(statusUrl: string | null, enabled = true): boolean | null {
+  const [available, setAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!statusUrl) return undefined;
+    if (!statusUrl || !enabled || available !== null) return undefined;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     fetch(statusUrl, { signal: controller.signal })
@@ -23,7 +23,7 @@ export default function useAvailability(statusUrl: string | null): boolean {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [statusUrl]);
+  }, [statusUrl, enabled, available]);
 
   return available;
 }

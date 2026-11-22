@@ -21,25 +21,33 @@ import { useAnchor, useShift } from "./useShift";
 
 /**
  * The Reinvent WP assistant on any page: the "Describe a problem…" field at the bottom centre,
- * and the side panel it opens. Shown only when Reinvent WP Services says it's on.
+ * and the side panel it opens. On the website it shows only once Reinvent WP Services says it's on. In wp-admin it
+ * shows without asking: Services is first contacted when the admin opens it (WordPress.org guideline 7), with one
+ * call, the usage, which also says whether the assistant is on; one that turns out to be off says so in the panel.
  */
 export default function Bot({ config, agent }: { config: BotConfig; agent?: BotAgentConfig }) {
   const apps = useApps(config);
-  const serviceOn = useAvailability(`${config.url}/status`);
   const pageAllows = usePageAllows();
-  const available = serviceOn && pageAllows;
   // Both remembered across reloads and pages: whether the panel is open, and where the closed assistant sits.
   const [asking, setAsking] = useStoredFlag(OPEN_KEY);
   const [placement, setPlacement] = usePlacement();
   const [panelMode, setPanelMode] = usePanelMode();
-  const open = available && asking;
-  // A host page may hand over the agent config (the AI Agent dev server has no printed one).
-  const hostAgent = useSyncExternalStore(embedStore.subscribe, embedStore.agent, () => undefined);
-  const assistant = useAssistant(config, strings.ask_error, apps, agent ?? hostAgent);
-  const anchor = useAnchor(config.shift);
   // A host page (AI Agent's admin) can draw the chat inside its own layout; see embed.ts.
   const host = useSyncExternalStore(embedStore.subscribe, embedStore.host, () => null);
   const hosted = useSyncExternalStore(embedStore.subscribe, embedStore.hosted, () => false);
+  // wp-admin waits for the admin: Services hears nothing until the assistant is opened (or a host page shows the chat).
+  const waits = config.surface === "wp-admin";
+  const engaged = !waits || hosted || (pageAllows && asking);
+  // A host page may hand over the agent config (the AI Agent dev server has no printed one).
+  const hostAgent = useSyncExternalStore(embedStore.subscribe, embedStore.agent, () => undefined);
+  const assistant = useAssistant(config, strings.ask_error, apps, agent ?? hostAgent, engaged);
+  // The website asks /status before showing anything; wp-admin reads it from the usage (null until that answers).
+  const statusOn = useAvailability(waits ? null : `${config.url}/status`);
+  const serviceOn = waits ? (assistant.usage?.available === false ? false : null) : statusOn;
+  // Before it is asked, wp-admin shows the assistant; once Services says it's off, the closed assistant goes away.
+  const available = pageAllows && (waits ? serviceOn !== false : serviceOn === true);
+  const open = pageAllows && asking && (waits || serviceOn === true);
+  const anchor = useAnchor(config.shift);
   useShift(config.shift, !hosted && open && panelMode === "beside", PANEL_WIDTH + 20);
   useEffect(() => embedStore.onNewChat(assistant.reset), [assistant.reset]);
   useEffect(() => embedStore.onLoad((saved) => assistant.loadSaved(saved as ChatMessage[])), [assistant.loadSaved]);
@@ -153,6 +161,7 @@ export default function Bot({ config, agent }: { config: BotConfig; agent?: BotA
           savedAt={assistant.savedAt}
           onOpenChat={(id) => void assistant.openChat(id)}
           onOpenSettings={() => setSettingsOpen(true)}
+          offline={serviceOn === false}
         />
       )}
     </ThemeProvider>

@@ -27,8 +27,8 @@ function summary(template: string, apps: HubApp[]): string {
 
 /**
  * The next useful action: Open (main) for an active app with an admin page, Activate or
- * Install (secondary) otherwise, or Download for an app that isn't on WordPress.org yet but has
- * a zip (its reinventwp.com page in a new tab; the hub never downloads or installs it itself).
+ * Install (secondary) otherwise, or Get it for an app that isn't on WordPress.org yet but has
+ * a zip (its page on reinventwp.com in a new tab, which offers the zip; the hub never downloads or installs it).
  * Null when there is nothing to do, like an active app that works without settings.
  */
 function action(app: HubApp): AppAction | null {

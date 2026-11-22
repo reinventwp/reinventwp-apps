@@ -188,7 +188,8 @@ function finish(current: ChatMessage[], message: ChatMessage): ChatMessage[] {
  * sends the last few turns, where it was asked (surface and page) and, in WordPress, this
  * site's Reinvent WP apps (slug, state, version) to Reinvent WP Services, which stores nothing.
  */
-export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[], agentConfig?: BotAgentConfig) {
+/** `active` false: the usage is not read yet (wp-admin, before the admin opens the assistant). */
+export default function useAssistant(config: BotConfig, errorText: string, apps: HubApp[], agentConfig?: BotAgentConfig, active = true) {
   const { url, surface, page } = config;
   const [messages, setMessages] = useState<ChatMessage[]>(load);
   const [loading, setLoading] = useState(false);
@@ -216,8 +217,8 @@ export default function useAssistant(config: BotConfig, errorText: string, apps:
     void fetchUsage({ url }, via).then((value) => value && setUsage(value));
   }, [url, usageUrl, usageNonce]);
   useEffect(() => {
-    refreshUsage();
-  }, [refreshUsage]);
+    if (active) refreshUsage();
+  }, [active, refreshUsage]);
 
   const setChatId = useCallback((id: number | null) => {
     chatIdRef.current = id;

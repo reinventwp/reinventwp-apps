@@ -23,8 +23,9 @@ export interface HubApp {
   /** WordPress.org install screen, when the user may install plugins. */
   install_url: string;
   /**
-   * Not on WordPress.org yet but has a zip (hub 2.5.0+): its download page on reinventwp.com, opened in a new tab.
-   * The hub never downloads or installs the zip itself (WordPress.org guideline 8).
+   * Not on WordPress.org yet but has a zip (hub 2.5.0+): the plugin's own page on reinventwp.com (its catalog href,
+   * else /plugins; hub 2.5.1+), opened in a new tab. The page offers the zip; the hub never links to, downloads or
+   * installs it (WordPress.org guideline 8).
    */
   download_url?: string;
   /** Product page on reinventwp.com. */

@@ -42,11 +42,11 @@ describe("hubApps.action", () => {
     expect(hubApps.action({ ...app("e", "missing"), coming_soon: true, install_url: "/inst" })).toBeNull();
   });
 
-  it("offers Download for an app that isn't on WordPress.org yet but has a zip, as a tagged reinventwp.com link", () => {
-    const download = hubApps.action({ ...app("reinvent-lightbox", "missing"), download_url: "https://reinventwp.com/download/reinvent-lightbox" });
+  it("offers Get it for an app that isn't on WordPress.org yet but has a zip, as a tagged link to its reinventwp.com page", () => {
+    const download = hubApps.action({ ...app("reinvent-lightbox", "missing"), download_url: "https://reinventwp.com/lightbox" });
     expect(download).toEqual({
-      href: "https://reinventwp.com/download/reinvent-lightbox?utm_source=wp_admin&utm_medium=apps_hub&utm_campaign=reinventwp_apps&utm_content=reinvent-lightbox",
-      label: "Download",
+      href: "https://reinventwp.com/lightbox?utm_source=wp_admin&utm_medium=apps_hub&utm_campaign=reinventwp_apps&utm_content=reinvent-lightbox",
+      label: "Get it",
       variant: "outlined",
       install: false,
       external: true,
@@ -60,7 +60,7 @@ describe("hubApps.action", () => {
     expect(hubApps.action({ ...app("g", "missing"), coming_soon: true, download_url: "https://reinventwp.com/download/g" })).toBeNull();
   });
 
-  it("offers Download only for apps the site doesn't have", () => {
+  it("offers Get it only for apps the site doesn't have", () => {
     expect(hubApps.action({ ...app("h", "inactive"), download_url: "https://reinventwp.com/download/h" })).toBeNull();
   });
 

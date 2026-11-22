@@ -1,4 +1,5 @@
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
+import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import { Box, Button, Chip, Link, Stack, Typography } from "@mui/material";
 import { useContext, useState, type MouseEvent } from "react";
 import hubApps from "./apps";
@@ -100,7 +101,7 @@ export default function AppCard({ app }: AppCardProps) {
               {busy === "activate" ? strings.activating : action.label}
             </Button>
           )}
-          {/* Not on WordPress.org yet: a link to the zip's page on reinventwp.com; the hub never downloads or installs it. */}
+          {/* Not on WordPress.org yet: a link to the plugin's page on reinventwp.com, which offers the zip; the hub never downloads or installs it. */}
           {action?.external && (
             <Stack spacing={0.5} alignItems="flex-start">
               <Button
@@ -109,7 +110,7 @@ export default function AppCard({ app }: AppCardProps) {
                 href={action.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                startIcon={<DownloadRoundedIcon />}
+                endIcon={<OpenInNewRoundedIcon />}
               >
                 {action.label}
               </Button>
