@@ -36,5 +36,8 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "three": "^0.182.0"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }
