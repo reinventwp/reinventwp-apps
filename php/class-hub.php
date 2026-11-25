@@ -30,7 +30,7 @@ class {{CLASS}} {
 	/**
 	 * Bump when the menu or dashboard changes; the highest version wins.
 	 */
-	const HUB_VERSION = '2.6.0';
+	const HUB_VERSION = '2.6.1';
 
 	/**
 	 * Top-level menu slug shared by all Reinvent WP plugins.
@@ -180,7 +180,8 @@ class {{CLASS}} {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- A one-off lookup of option names around one activation.
 		return (array) $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+				'SELECT option_name FROM %i WHERE option_name LIKE %s OR option_name LIKE %s',
+				$wpdb->options,
 				'%' . $wpdb->esc_like( '_do_activation_redirect' ),
 				$wpdb->esc_like( '_transient_fs_' ) . '%' . $wpdb->esc_like( '_activated' )
 			)
