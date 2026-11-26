@@ -33,6 +33,8 @@ module.exports = (_env, argv) => {
     plugins: isDev ? [new HtmlWebpackPlugin({ template: path.resolve(__dirname, "dev/index.html") })] : [],
     devServer: {
       port: 3017,
+      // Local only (task #623): never reachable from the Wi-Fi.
+      host: "127.0.0.1",
       hot: true,
       static: { directory: path.resolve(__dirname, "dev") },
       // The AI Agent admin dev server (localhost:3001) loads bot.js and data.js from here to draw its chat view.
